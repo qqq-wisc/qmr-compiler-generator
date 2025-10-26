@@ -32,10 +32,14 @@ To run a `.qmrl` run
 ```
 ./qmrl run $FILE <circuit> <graph> --<solve-mode>
 ```
-where $FILE is the relative path to your MAROL file ending in `.qmrl`. 
+where $FILE is the relative path to your MAROL file ending in `.qmrl`. <circuit> expects a .qasm file, <graph> expects a JSON file decribing the shape of the architecture, and --<solve-mode> expects
+
+# Packages
+
+
 
 # Notes
-Depending on what version of python how and how it is installed, you may need to add an alias to your bash config file, which should be at either `~/.bashrc`, `~/.bash\_profile` or `~/.zshrc`
+Depending on what version of python you have and how it is installed, you may need to add an alias to your bash config file, which should be at either `~/.bashrc`, `~/.bash\_profile` or `~/.zshrc`
 
 # References 
 MAROL is based on the following paper:

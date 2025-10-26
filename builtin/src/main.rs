@@ -58,10 +58,10 @@ fn ion_test() {
 }
 
 fn main() {
-    // nisq_test();
-    // scmr_test();
-    // raa_test();
-    //mqlss_test();
-    // ilq_test();
+    nisq_test();
+    scmr_test();
+    raa_test();
+    mqlss_test();
+    ilq_test();
     ion_test();
 }
