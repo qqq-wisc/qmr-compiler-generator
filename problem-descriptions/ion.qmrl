@@ -1,12 +1,12 @@
 
 {{
-    fn get_pair_cost(pair: (Location, Location), arch: &IonArch) -> f64 {
+    fn get_pair_cost(pair: (Location, Location), arch: &CustomArch) -> f64 {
     let mut cost = 0.0;
     // all pairs have these at the end points
     cost += 80e-6 + 5e-6 + 5e-6 + 80e-6;
     let (col_a, col_b) = (
         pair.0.get_index() / (2 * arch.trap_size),
-        pair.0.get_index() / (2 * arch.trap_size),
+        pair.1.get_index() / (2 * arch.trap_size),
     );
     // counting junctions
     let junction_count = usize::abs_diff(col_a, col_b)+1;
@@ -31,6 +31,37 @@
     return cost;
 }
 }}
+
+let end_segments_cost = 80e-6 + 5e-6 + 5e-6 + 80e-6
+let (col_a, col_b) = (
+        pair.0.get_index() / (2 * arch.trap_size),
+        pair.1.get_index() / (2 * arch.trap_size),
+) 
+let junction_count = abs(col_a - col_b) + 1
+let y count_a = 
+if col_a == 0 || col_a == arch.width - 1
+    then 1
+    else 0
+let y_count_b
+    if col_b == 0 || col_b == arch.width - 1
+        then 1
+        else 0
+let y_count = y_count_a + y_count_b
+let x_count = junction_count - y_count_a - y_count_b 
+let y_count_cost = y_count * (100e-6 + 5e-6)
+let x_count_cost = x_count * (120e-6 + 5e-6);
+let swap_cos_a = if arch.get_outer_trap_positions().contains(&pair.0) 
+    then 0
+    else 42e-6
+let swap_cost_b = if arch.get_outer_trap_positions().contains(&pair.1) 
+    then 0
+    else 42e-6
+let swap_cost = swap_cost_a  + swap_cost_b
+let get_pair_cost =  end_segments_cost + y_count_cost+x_count_cost+Swap
+in fold(0, |x, acc| -> max(x, acc), map(|x| -> get_pair_cost(x, Arch), Transition.edges))
+
+
+
 
 GateRealization[
     routed_gates = CX

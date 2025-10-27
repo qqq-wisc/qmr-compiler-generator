@@ -2,19 +2,16 @@ GateRealization[
     routed_gates = CX
     name = 'NisqCnot'
     data = (u : Location, v : Location)
-    realize_gate = if Arch.contains_edge(
-                    (Step.map[Gate.qubits[0]],Step.map[Gate.qubits[1]]))
-            then Some(
-                    GateRealization{u = Step.map[Gate.qubits[0]],
-                                    v = Step.map[Gate.qubits[1]]})
+    realize_gate = if Arch.contains_edge((Step.map[Gate.qubits[0]],Step.map[Gate.qubits[1]]))
+            then Some(GateRealization{u = Step.map[Gate.qubits[0]],v = Step.map[Gate.qubits[1]]})
             else None
 ]
+
 
 Transition[
     name = 'Swap'
     data = (edge : (Location,Location))
-    get_transitions = (map(|x| -> Transition{ edge = x}, Arch.edges()))
-                        .push(Transition{edge = (Location(0),Location(0))})
+    get_transitions = (map(|x| -> Transition{ edge = x}, Arch.edges())).push(Transition{edge = (Location(0),Location(0))})
     apply = value_swap(Transition.edge.(0), Transition.edge.(1))
     cost = if (Transition.edge)==(Location(0), Location(0))
             then 0.0
@@ -27,6 +24,5 @@ Architecture[
 ]
 
 Step[
-    cost=fold(0, |x,acc| -> acc+x, 
-    map(|x| -> Arch.succ_rates[x.qubits[0]][x.qubits[1]], Step.gates()))
+    cost=fold(0, |x,acc| -> acc+x, map(|x| -> Arch.succ_rates[x.qubits[0]][x.qubits[1]], Step.gates()))
 ]

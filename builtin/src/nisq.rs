@@ -267,3 +267,15 @@ pub fn nisq_solve_joint_optimize_parallel(c: &Circuit, a: &NisqArchitecture) -> 
         false,
     );
 }
+
+pub fn nisq_solve_joint_optimize_parallel_no_opt(c: &Circuit, a: &NisqArchitecture) -> CompilerResult<NisqGateImplementation> {
+    return solve_joint_optimize_parallel(
+        c,
+        a,
+        &|s| nisq_transitions(s, a),
+        nisq_implement_gate,
+        nisq_step_cost,
+        Some(mapping_heuristic),
+        true,
+    );
+}

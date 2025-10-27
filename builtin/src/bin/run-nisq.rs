@@ -1,7 +1,7 @@
 use std::fs::File;
 
 use solver::utils::{self, graph_from_json_entry, IOError};
-use builtin::nisq::{self, nisq_solve, nisq_solve_cached_heuristic, nisq_solve_joint_optimize, nisq_solve_joint_optimize_parallel, nisq_solve_sabre, nisq_solve_sabre_par};
+use builtin::nisq::{self, nisq_solve, nisq_solve_cached_heuristic, nisq_solve_joint_optimize, nisq_solve_joint_optimize_parallel, nisq_solve_joint_optimize_parallel_no_opt, nisq_solve_sabre, nisq_solve_sabre_par};
 use serde_json::{self, Value};
 
 
@@ -19,6 +19,7 @@ fn run_nisq(circ_path: &str, arch_path : &str, solve_mode : &str) -> Result<(), 
         "--sabre-par" => Ok(nisq_solve_sabre_par(&circ, &arch)),
         "--joint-optimize" => Ok(nisq_solve_joint_optimize(&circ, &arch)),
         "--joint-optimize-par" => Ok(nisq_solve_joint_optimize_parallel(&circ, &arch)),
+        "--joint-optimize-par-no-opt" => Ok(nisq_solve_joint_optimize_parallel_no_opt(&circ, &arch)),
         _ => Err(IOError::InputErr)
     }?;
     serde_json::to_writer(std::io::stdout(), &res).map_err(IOError::OutputErr)

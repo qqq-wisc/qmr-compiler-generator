@@ -209,7 +209,7 @@ fn get_pair_cost(pair: (Location, Location), arch: &IonArch) -> f64 {
     cost += SPLIT_COST + SEGMENT_COST + SEGMENT_COST + MERGE_COST;
     let (col_a, col_b) = (
         pair.0.get_index() / (2 * arch.trap_size),
-        pair.0.get_index() / (2 * arch.trap_size),
+        pair.1.get_index() / (2 * arch.trap_size),
     );
     // counting junctions
     let junction_count = usize::abs_diff(col_a, col_b)+1;
@@ -382,5 +382,20 @@ pub fn ion_solve_joint_optimize_parallel(
         |_s, _a| 0.0,
         Some(mapping_heuristic),
         false,
+    );
+}
+
+pub fn ion_solve_joint_optimize_parallel_no_opt(
+    c: &Circuit,
+    a: &IonArch,
+) -> CompilerResult<IonGateImplementation> {
+    return solve_joint_optimize_parallel(
+        c,
+        a,
+        &|s| ion_transitions(a, s),
+        &ion_implement_gate,
+        |_s, _a| 0.0,
+        Some(mapping_heuristic),
+        true,
     );
 }

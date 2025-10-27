@@ -2,7 +2,7 @@ GateRealization[
     routed_gates = CX
     name = 'RAAGate'
     data = (src : Location, dst : Location)
-    realize_gate = if consistent(to_2d(Step.map[Gate.qubits[0]]), to_2d(Step.map[Gate.qubits[0]]), 
+    realize_gate = if consistent(to_2d(Step.map[Gate.qubits[0]]), to_2d(Step.map[Gate.qubits[1]]), 
                         map(|x| -> 
                             Vec().push(to_2d(x.implementation().u)).push(x.implementation().v)))
                     then 
@@ -37,7 +37,7 @@ Step[
             
 ]
 {{
-fn raa_step_cost(step: &RaaStep, arch: &RaaArchitecture) -> f64 {
+fn raa_step_cost(step: &Step<RAAGate>, arch: &CustomArch) -> f64 {
     let mut cost = 0.0;
     let mut max_dist = 0.0;
     for gate in &step.gates() {

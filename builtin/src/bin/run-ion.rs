@@ -1,4 +1,4 @@
-use builtin::ion::{ion_solve, ion_solve_joint_optimize_parallel, IonArch};
+use builtin::ion::{ion_solve, ion_solve_joint_optimize_parallel, ion_solve_joint_optimize_parallel_no_opt, IonArch};
 use serde_json;
 use solver::utils::{self, IOError};
 
@@ -13,6 +13,7 @@ fn run_ion(circ_path: &str, width_arg: &str, solve_mode: &str) -> Result<(), IOE
     let res = match solve_mode {
         "--onepass" => Ok(ion_solve(&circ, &arch)),
         "--joint-optimize-par" => Ok(ion_solve_joint_optimize_parallel(&circ, &arch)),
+        "--joint-optimize-par-no-opt" => Ok(ion_solve_joint_optimize_parallel_no_opt(&circ, &arch)),
         _ => Err(IOError::InputErr),
     }?;
     serde_json::to_writer(std::io::stdout(), &res).map_err(IOError::OutputErr)
