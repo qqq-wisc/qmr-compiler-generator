@@ -20,19 +20,19 @@ To compile a `.qmrl` file run
 ```
 ./qmrl compile $FILE
 ```
-where $FILE is the relative path to your MAROL file ending in `.qmrl`. The compiled program will be at `generated-solvers/$BASE` where $BASE is the filename without the `.qmrl` ending.
+where `$FILE` is the relative path to your MAROL file ending in `.qmrl`. The compiled program will be at `generated-solvers/$BASE` where $BASE is the filename without the `.qmrl` ending.
 
 To debug a `.qmrl` file run 
 ```
 ./qmrl debug $FILE
 ```
-where $FILE is the relative path to your MAROL file ending in `.qmrl`. The debug output will be at `generator/debug`
+where `$FILE` is the relative path to your MAROL file ending in `.qmrl`. The debug output will be at `generator/debug`
 
 To run a `.qmrl` run
 ```
 ./qmrl run $FILE <circuit> <graph> --<solve-mode>
 ```
-where $FILE is the relative path to your MAROL file ending in `.qmrl`. `<circuit>` expects a `.qasm` file, `<graph>` expects a JSON file decribing the shape of the architecture, and `--<solve-mode>` expects one of the following:
+where `$FILE` is the relative path to your MAROL file ending in `.qmrl`. `<circuit>` expects a `.qasm` file, `<graph>` expects a JSON file decribing the shape of the architecture, and `--<solve-mode>` expects one of the following:
 * `--sabre`: 
 * `--onepass`:
 * `--joint_optimize-par`: What do these do ?
@@ -48,7 +48,7 @@ where $FILE is the relative path to your MAROL file ending in `.qmrl`. `<circuit
   * `src/utils.rs`:
 * `generated-solvers`: This directory will hold any generated compilers.
 * `problem_descriptions`: This directory has some example MAROL files.
-* `builtin`: Contains some example tests from page 3 of [the paper](References).
+* `builtin`: Contains some example tests from page 3 of [the paper](README.md/References).
 
 
 # Notes
