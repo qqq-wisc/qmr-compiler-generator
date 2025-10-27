@@ -65,6 +65,26 @@ fn named_tuple_parser() -> impl Parser<char, ast::NamedTuple, Error = Simple<cha
         .map(|(name, fields)| ast::NamedTuple { name, fields })
 }
 
+fn named_tuple_parser_new(datatype_name : String) -> impl Parser<char, ast::NamedTuple, Error = Simple<char>>{
+    let name = just(datatype_name);
+    let fields = (text::ident()
+                    .padded()
+                    .then_ignore(just(":"))
+                    .padded()
+                    .then(type_parser())
+                    .padded()
+                .separated_by(just(",").padded())
+                .at_least(1))
+                .delimited_by(just("{"), just("}"))
+            .padded()
+            .map(|fields| fields.into_iter().collect());
+    name.padded()
+        .then(fields)
+        .map(|(name, fields)| ast::NamedTuple { name : name, fields })
+
+}
+
+
 fn float_parser() -> impl Parser<char, f64, Error = Simple<char>> {
     let sign = just('-').or_not().map(|s| -> f64 {
         if s.is_some() {
@@ -108,24 +128,22 @@ fn impl_block_parser() -> impl Parser<char, ast::ImplBlock, Error = Simple<char>
             .ignore_then(gate_type_parser())
             .padded()
     };
-    let data = named_tuple_parser();
+    let data = named_tuple_parser_new("GateRealization".to_string());
     let realize = keyword("realize_gate")
         .padded()
         .ignore_then(just("="))
         .padded()
         .ignore_then(expr_parser())
         .padded();
-    keyword("GateRealization")
+    keyword("RouteInfo")
         .padded()
-        .then_ignore(just("["))
+        .then_ignore(just(":"))
         .padded()
         .ignore_then(routed_gates)
         .padded()
         .then(data)
         .padded()
         .then(realize)
-        .padded()
-        .then_ignore(just("]"))
         .padded()
         .map(|((routed_gates, data), realize)| ast::ImplBlock {
             routed_gates,
@@ -135,7 +153,7 @@ fn impl_block_parser() -> impl Parser<char, ast::ImplBlock, Error = Simple<char>
 }
 
 fn trans_block_parser() -> impl Parser<char, ast::TransitionBlock, Error = Simple<char>> {
-    let data = named_tuple_parser();
+    let data = named_tuple_parser_new("Transition".to_string());
     let get_transitions = just("get_transitions")
         .padded()
         .ignore_then(just("="))
@@ -154,9 +172,9 @@ fn trans_block_parser() -> impl Parser<char, ast::TransitionBlock, Error = Simpl
         .padded()
         .ignore_then(expr_parser())
         .padded();
-    keyword("Transition")
+    keyword("TransitionInfo")
         .padded()
-        .then_ignore(just("["))
+        .then_ignore(just(":"))
         .padded()
         .ignore_then(data)
         .padded()
@@ -165,8 +183,6 @@ fn trans_block_parser() -> impl Parser<char, ast::TransitionBlock, Error = Simpl
         .then(apply)
         .padded()
         .then(cost)
-        .padded()
-        .then_ignore(just("]"))
         .padded()
         .map(
             |(((data, get_transitions), apply), cost)| ast::TransitionBlock {
@@ -187,22 +203,21 @@ fn method_name() -> impl Parser<char, String, Error = Simple<char>> {
 }
 
 fn arch_block_parser() -> impl Parser<char, Option<ast::ArchitectureBlock>, Error = Simple<char>> {
-    let data = named_tuple_parser();
+    let data = named_tuple_parser_new("Arch".to_string());
     let get_locations = just("get_locations")
         .padded()
         .ignore_then(just("="))
         .padded()
         .ignore_then(expr_parser())
         .padded();
-    keyword("Architecture")
+    keyword("ArchInfo")
         .padded()
-        .then_ignore(just("["))
+        .then_ignore(just(":"))
         .padded()
         .ignore_then(data)
         .padded()
         .then(get_locations.or_not())
         .padded()
-        .then_ignore(just("]"))
         .map(|(data, get_locations)| ast::ArchitectureBlock {
             data,
             get_locations,
@@ -216,13 +231,12 @@ fn step_block_parser() -> impl Parser<char, Option<ast::StepBlock>, Error = Simp
         .ignore_then(just("="))
         .ignore_then(expr_parser())
         .padded();
-    keyword("Step")
+    keyword("StepInfo")
         .padded()
-        .then_ignore(just("["))
+        .then_ignore(just(":"))
         .padded()
         .ignore_then(cost)
         .padded()
-        .then_ignore(just("]"))
         .map(|cost| ast::StepBlock { cost })
         .or_not()
 }

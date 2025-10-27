@@ -118,7 +118,15 @@ fn contains_subexpr(e: &Expr, subexpr: &Expr) -> bool {
 }
 
 fn emit_define_struct(data: &NamedTuple, out: &mut impl std::io::Write) -> std::io::Result<()> {
-    let struct_name = syn::Ident::new(&data.name, Span::call_site());
+    let span: Span = Span::call_site();        // keep the original span
+    let name = data.name.to_string();         // make a String once
+
+    let struct_name: Ident = match name.as_str() {
+        "GateRealization" => Ident::new("CustomRealization", span),
+        "Transition"      => Ident::new("CustomTransition", span),
+        "Arch"            => Ident::new("CustomArch", span),
+        other             => Ident::new(other, span),
+    };
     let fields = data.fields.iter().map(|(name, ty)| {
         let field_name = syn::Ident::new(name, Span::call_site());
         let field_ty: syn::Type = emit_type(ty);
@@ -198,7 +206,7 @@ fn emit_define_arch_struct(
     Ok(())
 }
 fn emit_impl_gate(imp_data: &NamedTuple, out: &mut impl std::io::Write) -> std::io::Result<()> {
-    let struct_name = syn::Ident::new(&imp_data.name, Span::call_site());
+    let struct_name = syn::Ident::new(&"CustomRealization", Span::call_site());
     let impl_gate_quote = quote! {impl GateImplementation for #struct_name {}};
     writeln!(out, "{}", impl_gate_quote)?;
     Ok(())
@@ -224,7 +232,7 @@ fn emit_impl_gate_methods(
         }
     });
     let methods_quote = quote! {
-        impl #struct_name {
+        impl CustomRealization{
             #(#getters)*
         }
     };
@@ -374,13 +382,11 @@ fn emit_impl_trans(
     let imp_struct_name = syn::Ident::new(&imp.data.name, Span::call_site());
     writeln!(
         out,
-        "impl Transition<{}, CustomArch> for {} {{",
-        &imp.data.name, &t.data.name
+        "impl Transition<CustomRealization, CustomArch> for CustomTransition{{",
     )?;
     writeln!(
         out,
-        " fn apply(&self, step: &Step<{}>) -> Step<{}> {{",
-        &imp.data.name, &imp.data.name
+        " fn apply(&self, step: &Step<CustomRealization>) -> Step<CustomRealization> {{"
     )?;
     emit_expr_streaming(
         &t.apply,
@@ -418,7 +424,7 @@ fn emit_available_transitions(
 ) -> std::io::Result<()> {
     let trans_struct_name = syn::Ident::new(&t.data.name, Span::call_site());
     let imp_struct_name = syn::Ident::new(&imp.data.name, Span::call_site());
-    writeln!(out, "fn available_transitions(arch : &CustomArch, step : &Step<{}>) -> Vec<{}> {{", &imp.data.name, &t.data.name)?;
+    writeln!(out, "fn available_transitions(arch : &CustomArch, step : &Step<CustomRealization>) -> Vec<CustomTransition> {{")?;
     emit_expr_streaming(
         &t.get_transitions,
         &Context::Free,
@@ -437,10 +443,10 @@ fn emit_realize_gate_function(
 ) -> std::io::Result<()> {
     let imp_struct_name = syn::Ident::new(&imp.data.name, Span::call_site());
     writeln!(out, "fn realize_gate(
-            step: &Step<{}>,
+            step: &Step<CustomRealization>,
             arch: &CustomArch,
             gate: &Gate,
-        ) -> impl IntoIterator<Item = {}> {{", &imp.data.name, &imp.data.name)?;
+        ) -> impl IntoIterator<Item = CustomRealization> {{")?;
     emit_expr_streaming(
         &imp.realize,
         &Context::Free,
@@ -485,8 +491,7 @@ fn emit_step_cost(p: &ProblemDefinition, out: &mut impl Write) -> std::io::Resul
     // fn header
     writeln!(
         out,
-        "fn custom_step_cost(step: &Step<{imp}>, arch: &CustomArch) -> f64 {{",
-        imp = imp_struct_name
+        "fn custom_step_cost(step: &Step<CustomRealization>, arch: &CustomArch) -> f64 {{",
     )?;
 
     match &p.step {
@@ -521,7 +526,7 @@ fn emit_solve_function(imp: &ImplBlock, out: &mut impl std::io::Write) -> std::i
     let explore_orders = contains_subexpr(&imp.realize, &sub_expr);
     let imp_struct_name = syn::Ident::new(&imp.data.name, Span::call_site());
     let solve_quote = quote! {
-        fn my_solve(c : &Circuit, a : &CustomArch) -> CompilerResult<#imp_struct_name> {
+        fn my_solve(c : &Circuit, a : &CustomArch) -> CompilerResult<CustomRealization> {
             return backend::solve(c, a, &|s| available_transitions(a, s), &realize_gate, custom_step_cost, Some(mapping_heuristic), #explore_orders);
     }
     };
@@ -541,7 +546,7 @@ fn emit_sabre_solve_function(
     let explore_orders = contains_subexpr(&imp.realize, &sub_expr);
     let imp_struct_name = syn::Ident::new(&imp.data.name, Span::call_site());
     let sabre_solve_quote = quote! {
-        fn my_sabre_solve(c : &Circuit, a : &CustomArch) -> CompilerResult<#imp_struct_name> {
+        fn my_sabre_solve(c : &Circuit, a : &CustomArch) -> CompilerResult<CustomRealization> {
             return backend::sabre_solve(c, a, &|s| available_transitions(a, s), &realize_gate, custom_step_cost, Some(mapping_heuristic), #explore_orders);
     }
     };
@@ -561,7 +566,7 @@ fn emit_joint_optimize_parallel_function(
     let explore_orders = contains_subexpr(&imp.realize, &sub_expr);
     let imp_struct_name = syn::Ident::new(&imp.data.name, Span::call_site());
     let joint_optimize_par_quote = quote! {
-        fn my_joint_solve_parallel(c : &Circuit, a : &CustomArch) -> CompilerResult<#imp_struct_name> {
+        fn my_joint_solve_parallel(c : &Circuit, a : &CustomArch) -> CompilerResult<CustomRealization> {
             return backend::solve_joint_optimize_parallel(c, a, &|s| available_transitions(a, s), &realize_gate, custom_step_cost, Some(mapping_heuristic), #explore_orders);
     }
     };
@@ -879,7 +884,7 @@ pub fn emit_expr_streaming<W: Write>(
             write!(out, ")")?;
         }
         Expr::TransitionConstructor(fields) => {
-            write!(out, "{} {{ ", trans_struct_name)?;
+            write!(out, "{} {{ ", "CustomTransition")?;
             for (i, (name, expr)) in fields.iter().enumerate() {
                 if i > 0 {
                     write!(out, ", ")?;
@@ -897,7 +902,7 @@ pub fn emit_expr_streaming<W: Write>(
             write!(out, " }}")?;
         }
         Expr::ImplConstructorExpr(fields) => {
-            write!(out, "{} {{ ", imp_struct_name)?;
+            write!(out, "{} {{ ", "CustomRealization")?;
             for (i, (name, expr)) in fields.iter().enumerate() {
                 if i > 0 {
                     write!(out, ", ")?;

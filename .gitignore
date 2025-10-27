@@ -7,3 +7,5 @@
 *.synctex.gz
 *.pdf
 *.log
+memlog.txt
+rustc-time.sh
