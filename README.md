@@ -20,7 +20,7 @@ To compile a `.qmrl` file run
 ```
 ./qmrl compile $FILE
 ```
-where `$FILE` is the relative path to your MAROL file ending in `.qmrl`. The compiled program will be at `generated-solvers/$BASE` where $BASE is the filename without the `.qmrl` ending.
+where `$FILE` is the relative path to your MAROL file ending in `.qmrl`. The compiled program will be at `generated-solvers/$BASE` where `$BASE` is the filename without the `.qmrl` ending.
 
 To debug a `.qmrl` file run 
 ```
