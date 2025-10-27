@@ -48,7 +48,7 @@ where `$FILE` is the relative path to your MAROL file ending in `.qmrl`. `<circu
   * `src/utils.rs`:
 * `generated-solvers`: This directory will hold any generated compilers.
 * `problem_descriptions`: This directory has some example MAROL files.
-* `builtin`: Contains some example tests from page 3 of [the paper](README.md/References).
+* `builtin`: Contains some example tests from page 3 of [the paper](#references).
 
 
 # Notes
