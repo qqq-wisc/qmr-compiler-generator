@@ -37,6 +37,8 @@ where `$FILE` is the relative path to your MAROL file ending in `.qmrl`. `<circu
 * `--onepass`:
 * `--joint_optimize-par`: What do these do ?
 
+# Writing MAROL
+
 # Packages and Files
 * `generator`: Contains the main code that is ran when you call `.qmrl`.
   * `src/main.rs`: Just passes the code onto `solver/src/utils.rs`.
