@@ -32,10 +32,23 @@ To run a `.qmrl` run
 ```
 ./qmrl run $FILE <circuit> <graph> --<solve-mode>
 ```
-where $FILE is the relative path to your MAROL file ending in `.qmrl`. <circuit> expects a .qasm file, <graph> expects a JSON file decribing the shape of the architecture, and --<solve-mode> expects
+where $FILE is the relative path to your MAROL file ending in `.qmrl`. `<circuit>` expects a `.qasm` file, `<graph>` expects a JSON file decribing the shape of the architecture, and `--<solve-mode>` expects one of the following:
+* `--sabre`: 
+* `--onepass`:
+* `--joint_optimize-par`: What do these do ?
 
-# Packages
-
+# Packages and Files
+* `generator`: Contains the main code that is ran when you call `.qmrl`.
+  * `src/main.rs`: Just passes the code onto `solver/src/utils.rs`.
+* `solver`: This is where all of the real computation happens.
+  * `src/backend.rs`:
+  * `src/config.rs `:
+  * `src/lib.rs`:
+  * `src/structures.rs`:
+  * `src/utils.rs`:
+* `generated-solvers`: This directory will hold any generated compilers.
+* `problem_descriptions`: This directory has some example MAROL files.
+* `builtin`: Contains some example tests from page 3 of [the paper](References).
 
 
 # Notes
