@@ -12,7 +12,6 @@ solver = { path = "../solver" }
 
 [build-dependencies]
 syn = "2.0.90"
-prettyplease = "0.2.25"
 proc-macro2 = "1.0.92"
 quote = "1.0.37"
 chumsky = "0.9.3"
