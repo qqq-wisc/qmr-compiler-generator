@@ -34,9 +34,9 @@ To run a `.qmrl` run
 ./qmrl run $FILE <circuit> <graph> --<solve-mode>
 ```
 where `$FILE` is the relative path to your MAROL file ending in `.qmrl`. `<circuit>` expects a `.qasm` file, `<graph>` expects a JSON file decribing the shape of the architecture, and `--<solve-mode>` expects one of the following:
-* `--sabre`: What do these do
-* `--onepass`:
-* `--joint_optimize-par`: 
+* `--sabre`: SABRE search algorithm from [\[2\]](#references).
+* `--onepass`: ??
+* `--joint_optimize-par`: MaxState algorithm from [\[1\]](#references).
 
 # Writing MAROL
 This section is a guide to defining a MAROL problem description. Let's look at `problem-descriptions/nisq.qmrl`:
@@ -60,11 +60,12 @@ Transition[
             else 1.0
 ]
 ```
+
 TODO: figure out what's going on with steps and states, my understanding is that they were the same thing, but I believe that in the paper they use `State.map`
-TODO: figure out how this section is going to work. My goal is to first introduce basic concepts like mapping, routing, step, transitions, gate, realizations and then build up from there.
+
 The two most basic components of a MAROL file are
-    (1) `GateRealization`: A gate realization is the way a specific gate needs to be routed on a given architecture. In the above see that in order to realize a CX gate in NISQ, the routed gate must be adjacent. A more interesting example of gate realization in the SCMR archicature is given after this.
-    (2) `Transition`: A transition is the operation between steps, which are like atomic "pieces" of mapping and routing.  Transitions are generally expensive and in the above example represent a swap between adjacent qubits in the architecture, as in NISQ CX gates need to occur between edge-adjacent qubits. Because of their cost, a cost function is used to measure how expensive a transition is for a given architecture.
+    1. `GateRealization`: A gate realization is the way a specific gate needs to be routed on a given architecture. In the above see that in order to realize a CX gate in NISQ, the routed gate must be adjacent. A more interesting example of gate realization in the SCMR archicature is given after this.
+    2. `Transition`: A transition is the operation between steps, which are like atomic "pieces" of mapping and routing.  Transitions are generally expensive and in the above example represent a swap between adjacent qubits in the architecture, as in NISQ CX gates need to occur between edge-adjacent qubits. Because of their cost, a cost function is used to measure how expensive a transition is for a given architecture.
 
 MAROL in fact mostly uses a functional paradigm. So, in the above, the attributes `GateRealization.realize_gate`, `Transition.apply` and `Transition.cost` are in fact functions, and take implicit parameters, for example `Location`. 
 
@@ -138,7 +139,11 @@ Here we see two more top level components, `Architecture` and `Step`. `Architect
 Depending on what version of Python you have and how it is installed, you may need to add an alias to your bash config file, which should be at either `~/.bashrc`, `~/.bash\_profile` or `~/.zshrc`
 
 # References 
-MAROL is based on the following paper:
+MAROL is primarily based on the following paper:
 
 [1] Abtin Molavi, Amanda Xu, Ethan Cecchetti, Swamit Tannu, Aws Albarghouthi. "[Generating Compilers for Qubit Mapping and Routing](https://arxiv.org/pdf/2508.10781)" 
+
+The codebase also implements the SABRE algorithm proposed by the following paper:
+
+[2] Gushu Li, Yufei Ding, Yuan Xie. "[Tackling the Qubit Mapping Problem for NISQ-Era Quantum Devices](https://arxiv.org/abs/1809.02573)"
 
