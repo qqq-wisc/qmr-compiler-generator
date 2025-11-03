@@ -1,5 +1,6 @@
+*This writeup is not final*
 # MAROL 
-**MAROL** is a toolkit designed for generating compilers for different quantum architectures. **MAROL** supplies a language for specifying quantum architectures based on Rust. 
+**MAROL** is a toolkit designed for generating compilers for different quantum architectures. **MAROL** supplies a language for specifying quantum architectures based on Rust.
 
 # Dependencies
 MAROL requires **Cargo** 1.90.0, **Python** 3.8 and a bash shell. 
@@ -59,9 +60,61 @@ Transition[
             else 1.0
 ]
 ```
+TODO: figure out what's going on with steps and states, my understanding is that they were the same thing, but I believe that in the paper they use `State.map`
+TODO: figure out how this section is going to work. My goal is to first introduce basic concepts like mapping, routing, step, transitions, gate, realizations and then build up from there.
 The two most basic components of a MAROL file are
-(1) `GateRealization`:
-(2) `Transition
+    (1) `GateRealization`: A gate realization is the way a specific gate needs to be routed on a given architecture. In the above see that in order to realize a CX gate in NISQ, the routed gate must be adjacent. A more interesting example of gate realization in the SCMR archicature is given after this.
+    (2) `Transition`: A transition is the operation between steps, which are like atomic "pieces" of mapping and routing.  Transitions are generally expensive and in the above example represent a swap between adjacent qubits in the architecture, as in NISQ CX gates need to occur between edge-adjacent qubits. Because of their cost, a cost function is used to measure how expensive a transition is for a given architecture.
+
+MAROL in fact mostly uses a functional paradigm. So, in the above, the attributes `GateRealization.realize_gate`, `Transition.apply` and `Transition.cost` are in fact functions, and take implicit parameters, for example `Location`. 
+
+Now let's look at `problem-descriptions/scmr.qmrl`:
+```
+GateRealization[
+    routed_gates = CX, T
+    name='ScmrGate'
+    data= (path : Vec<Location>)
+    realize_gate =  
+    if (Gate.gate_type()) == CX 
+        then 
+            map(|x| -> GateRealization{path = x}, 
+            all_paths(arch, vertical_neighbors(Step.map[Gate.qubits[0]], Arch.width, Arch.height), 
+            horizontal_neighbors(Step.map[Gate.qubits[1]], arch.width), 
+            ((values(Step.map())).extend(Arch.magic_state_qubits()))
+            .extend(fold(Vec(), |x, acc| -> acc.extend(x), 
+            map(|x| -> x.implementation.(path()), Step.implemented_gates())))))
+        else   
+            map(|x| -> GateRealization{path = x}, 
+                all_paths(arch, 
+                          vertical_neighbors(Step.map[Gate.qubits[0]], Arch.width, Arch.height), 
+                          fold(Vec(), |x, acc| -> acc.extend(x), 
+                          map(|x| -> horizontal_neighbors(x, arch.width), Arch.magic_state_qubits())), 
+                          ((values(Step.map()))
+                          .extend(Arch.magic_state_qubits()))
+                          .extend(fold(Vec(), |x, acc| -> acc.extend(x),
+                           map(|x| -> x.implementation.(path()), Step.implemented_gates())))))
+ ]
+
+Transition[
+    name = 'Id'
+    data = (na : Location)
+    get_transitions = (Vec()).push(Transition{na=Location(0)})
+    apply = identity_application(step)
+    cost = 0.0
+
+]
+
+Architecture[
+    name = 'ScmrArch'
+    data = (magic_state_qubits : Vec<Location>, alg_qubits : Vec<Location>, width : Int, height : Int)
+    get_locations = Arch.alg_qubits()
+]
+
+Step[
+    cost = 1.0
+]
+```
+Here we see two more top level components, `Architecture` and `Step`. `Architecture` allows us to specify more information about the architecture, for instance in SCMR that's where the magic qubits, used for T gates, and where the other remaining algorithmic qubits are. `Step` allows us to assign a cost to each step, as in SCMR a step itself is more expensive than the transition between steps, where as in NISQ it is the opposite. Here the `GateRealization` portion is much more interesting than the previous example. We can specify multiple gates with `routed_gates` and check the implicit paramater `Gate`'s with `.gate_type()`. 
 # Packages and Files
 * `generator`: Contains the main code that is ran when you call `.qmrl`.
   * `src/main.rs`: Turns the `.qmrl` file into rust code. The line `include!(concat!(env!("OUT_DIR"), "/custom.rs"));` specifically adds `custom.rs` to `main.rs`, once compiled it uses MAROL description to solve the given mapping and routing problem.
@@ -78,7 +131,7 @@ The two most basic components of a MAROL file are
   * `src/utils.rs`: Utility functions for the solver.
 * `generated-solvers`: This directory will hold any generated compilers.
 * `problem_descriptions`: This directory has some example MAROL files.
-* `builtin`: Contains some example tests from page 3 from [the paper](#references).
+* `builtin`: Contains some example tests from page 3 from the paper [\[1\]](#references).
 
 
 # Notes
