@@ -42,7 +42,12 @@ where `$FILE` is the relative path to your MAROL file ending in `.qmrl`. `<circu
 # Packages and Files
 * `generator`: Contains the main code that is ran when you call `.qmrl`.
   * `src/main.rs`: Turns the `.qmrl` file into rust code. The line `include!(concat!(env!("OUT_DIR"), "/custom.rs"));` specifically adds `custom.rs` to `main.rs`, once compiled it uses MAROL description to solve the given mapping and routing problem.
-* `solver`: This code is compiled and uses the MAROL description to solve the 
+  * `build`: Parses the MAROL file and turns it into Rust code.
+   * `ast.rs`: Defines some data structures for parsing the MAROL code.
+   * `main.rs`: Parses the MAROL description, emits the tokens as rust into `custom.rs`.
+   * `emit.rs`: Emits a list of parsed tokens from a MAROL file description as rust code.
+   * `parse.rs`: Parses and interprets the MAROL file.
+* `solver`: This code does the main heavy lifting for solving the mapping and routing problems based on the MAROL description.
   * `src/backend.rs`: Here are the functions for solving for solving the mapping and routing problem based on the `--<solve-mode>`.
   * `src/config.rs`: Configurations for the solver.
   * `src/lib.rs`: Describes the modules for the solver.
