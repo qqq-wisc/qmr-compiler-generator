@@ -38,7 +38,30 @@ where `$FILE` is the relative path to your MAROL file ending in `.qmrl`. `<circu
 * `--joint_optimize-par`: 
 
 # Writing MAROL
+This section is a guide to defining a MAROL problem description. Let's look at `problem-descriptions/nisq.qmrl`:
+```
+GateRealization[
+    routed_gates = CX
+    name = 'NisqCnot'
+    data = (u : Location, v : Location)
+    realize_gate = if Arch.contains_edge((Step.map[Gate.qubits[0]],Step.map[Gate.qubits[1]]))
+            then Some(GateRealization{u = Step.map[Gate.qubits[0]],v = Step.map[Gate.qubits[1]]})
+            else None
+]
 
+Transition[
+    name = 'Swap'
+    data = (edge : (Location,Location))
+    get_transitions = (map(|x| -> Transition{ edge = x}, Arch.edges())).push(Transition{edge = (Location(0),Location(0))})
+    apply = value_swap(Transition.edge.(0), Transition.edge.(1))
+    cost = if (Transition.edge)==(Location(0), Location(0))
+            then 0.0
+            else 1.0
+]
+```
+The two most basic components of a MAROL file are
+(1) `GateRealization`:
+(2) `Transition
 # Packages and Files
 * `generator`: Contains the main code that is ran when you call `.qmrl`.
   * `src/main.rs`: Turns the `.qmrl` file into rust code. The line `include!(concat!(env!("OUT_DIR"), "/custom.rs"));` specifically adds `custom.rs` to `main.rs`, once compiled it uses MAROL description to solve the given mapping and routing problem.
@@ -55,7 +78,7 @@ where `$FILE` is the relative path to your MAROL file ending in `.qmrl`. `<circu
   * `src/utils.rs`: Utility functions for the solver.
 * `generated-solvers`: This directory will hold any generated compilers.
 * `problem_descriptions`: This directory has some example MAROL files.
-* `builtin`: Contains some example tests from page 3 of [the paper](#references).
+* `builtin`: Contains some example tests from page 3 from [the paper](#references).
 
 
 # Notes
@@ -63,5 +86,6 @@ Depending on what version of Python you have and how it is installed, you may ne
 
 # References 
 MAROL is based on the following paper:
+
 [1] Abtin Molavi, Amanda Xu, Ethan Cecchetti, Swamit Tannu, Aws Albarghouthi. "[Generating Compilers for Qubit Mapping and Routing](https://arxiv.org/pdf/2508.10781)" 
 
