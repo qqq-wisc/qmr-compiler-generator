@@ -114,7 +114,7 @@ Step[
     cost = 1.0
 ]
 ```
-Here we see two more top level components, `Architecture` and `Step`. `Architecture` allows us to specify more information about the architecture, for instance in SCMR that's where the magic qubits, used for T gates, and where the other remaining algorithmic qubits are. `Step` allows us to assign a cost to each step, as in SCMR a step itself is more expensive than the transition between steps, where as in NISQ it is the opposite. Here the `GateRealization` portion is much more interesting than the previous example. We can specify multiple gates with `routed_gates` and check the implicit paramater `Gate`'s with `.gate_type()`. 
+Here we see two more top level components, `Architecture` and `Step`. `Architecture` allows us to specify more information about the architecture, for instance in SCMR that's where the magic qubits, used for T gates, and where the other remaining algorithmic qubits are. `Step` allows us to assign a cost to each step, as in SCMR a step itself is more expensive than the transition between steps, where as in NISQ it is the opposite. Here the `GateRealization` portion is much more interesting than the previous example. We can specify multiple gates with `routed_gates` and check the implicit paramater `Gate`'s type with `.gate_type()`. 
 # Packages and Files
 * `generator`: Contains the main code that is ran when you call `.qmrl`.
   * `src/main.rs`: Turns the `.qmrl` file into rust code. The line `include!(concat!(env!("OUT_DIR"), "/custom.rs"));` specifically adds `custom.rs` to `main.rs`, once compiled it uses MAROL description to solve the given mapping and routing problem.
