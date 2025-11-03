@@ -33,28 +33,28 @@ To run a `.qmrl` run
 ./qmrl run $FILE <circuit> <graph> --<solve-mode>
 ```
 where `$FILE` is the relative path to your MAROL file ending in `.qmrl`. `<circuit>` expects a `.qasm` file, `<graph>` expects a JSON file decribing the shape of the architecture, and `--<solve-mode>` expects one of the following:
-* `--sabre`: 
+* `--sabre`: What do these do
 * `--onepass`:
-* `--joint_optimize-par`: What do these do ?
+* `--joint_optimize-par`: 
 
 # Writing MAROL
 
 # Packages and Files
 * `generator`: Contains the main code that is ran when you call `.qmrl`.
-  * `src/main.rs`: Just passes the code onto `solver/src/utils.rs`.
-* `solver`: This is where all of the real computation happens.
-  * `src/backend.rs`:
-  * `src/config.rs `:
-  * `src/lib.rs`:
-  * `src/structures.rs`:
-  * `src/utils.rs`:
+  * `src/main.rs`: Turns the `.qmrl` file into rust code. The line `include!(concat!(env!("OUT_DIR"), "/custom.rs"));` specifically adds `custom.rs` to `main.rs`, once compiled it uses MAROL description to solve the given mapping and routing problem.
+* `solver`: This code is compiled and uses the MAROL description to solve the 
+  * `src/backend.rs`: Here are the functions for solving for solving the mapping and routing problem based on the `--<solve-mode>`.
+  * `src/config.rs`: Configurations for the solver.
+  * `src/lib.rs`: Describes the modules for the solver.
+  * `src/structures.rs`: Defines some data structures for the solver.
+  * `src/utils.rs`: Utility functions for the solver.
 * `generated-solvers`: This directory will hold any generated compilers.
 * `problem_descriptions`: This directory has some example MAROL files.
 * `builtin`: Contains some example tests from page 3 of [the paper](#references).
 
 
 # Notes
-Depending on what version of python you have and how it is installed, you may need to add an alias to your bash config file, which should be at either `~/.bashrc`, `~/.bash\_profile` or `~/.zshrc`
+Depending on what version of Python you have and how it is installed, you may need to add an alias to your bash config file, which should be at either `~/.bashrc`, `~/.bash\_profile` or `~/.zshrc`
 
 # References 
 MAROL is based on the following paper:
