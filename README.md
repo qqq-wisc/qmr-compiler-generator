@@ -136,7 +136,7 @@ Here we see two more top level components, `Architecture` and `Step`. `Architect
 
 
 # Notes
-Depending on what version of Python you have and how it is installed, you may need to add an alias to your bash config file, which should be at either `~/.bashrc`, `~/.bash\_profile` or `~/.zshrc`
+Depending on what version of Python you have and how it is installed, you may need to add an alias to your bash config file, which should be at either `~/.bashrc`, `~/.bash_profile` or `~/.zshrc`
 
 # References 
 MAROL is primarily based on the following paper:
