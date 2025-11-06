@@ -6,6 +6,7 @@ use std::{env, path::Path, vec};
 use ast::*;
 use emit::write_to_file;
 
+
 fn test_program() -> ProblemDefinition {
     ProblemDefinition {
         imp: ImplBlock {
@@ -152,7 +153,7 @@ fn from_file() {
     let _ = std::fs::write("debug", ast.as_bytes());
     let out_dir = env::var_os("OUT_DIR").unwrap();
     let dest_path = Path::new(&out_dir).join("custom.rs");
-    write_to_file(p, dest_path.to_str().unwrap());
+    write_to_file(&p, dest_path.to_str().unwrap());
 }
 
 fn main() {

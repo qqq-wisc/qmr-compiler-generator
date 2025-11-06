@@ -1,28 +1,20 @@
-GateRealization[
+RouteInfo:
     routed_gates = CX
-    name = 'NisqCnot'
-    data = (u : Location, v : Location)
-    realize_gate = if Arch.contains_edge((Step.map[Gate.qubits[0]],Step.map[Gate.qubits[1]]))
-            then Some(GateRealization{u = Step.map[Gate.qubits[0]],v = Step.map[Gate.qubits[1]]})
+    GateRealization{u : Location, v : Location}
+    realize_gate = if Arch.contains_edge((State.map[Gate.qubits[0]],State.map[Gate.qubits[1]]))
+            then Some(GateRealization{u = State.map[Gate.qubits[0]],v = State.map[Gate.qubits[1]]})
             else None
-]
 
-
-Transition[
-    name = 'Swap'
-    data = (edge : (Location,Location))
+TransitionInfo:
+    Transition{edge : (Location,Location)}
     get_transitions = (map(|x| -> Transition{ edge = x}, Arch.edges())).push(Transition{edge = (Location(0),Location(0))})
     apply = value_swap(Transition.edge.(0), Transition.edge.(1))
     cost = if (Transition.edge)==(Location(0), Location(0))
             then 0.0
             else Arch.succ_rates[Transition.edge.(0)][Transition.edge.(1)]
-]
 
-Architecture[
-    name='NisqVarErr'
-    data = (succ_rates : Vec<Vec<Float>>)
-]
+ArchInfo:
+    Arch{succ_rates : Vec<Vec<Float>>}
 
-Step[
-    cost=fold(0, |x,acc| -> acc+x, map(|x| -> Arch.succ_rates[x.qubits[0]][x.qubits[1]], Step.gates()))
-]
+StateInfo:
+    cost=fold(0.0, |x, acc| -> acc+x, map(|x| -> Arch.succ_rates[x.qubits[0]][x.qubits[1]], State.gates()))

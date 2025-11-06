@@ -26,6 +26,15 @@ impl Qubit {
     }
 }
 
+impl<T> Index<Qubit> for Vec<T> {
+    type Output = T;
+
+    fn index(&self, q : Qubit) -> &Self::Output {
+        &self[q.get_index()]
+    }
+}
+
+
 #[derive(Hash, PartialEq, Eq, Clone, Copy, Debug, Default, Serialize, Deserialize)]
 pub struct Location(usize);
 

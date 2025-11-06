@@ -4,7 +4,7 @@ use proc_macro2::TokenStream;
 use quote::quote;
 use syn::Ident;
 
-pub fn emit_program(p: ProblemDefinition) -> TokenStream {
+pub fn emit_program(p: &ProblemDefinition) -> TokenStream {
     let use_statements = quote! {
         use solver::structures::*;
         use solver::structures::GateType::*;
@@ -132,7 +132,15 @@ Expr::RangeExpr { bot, top } => contains_subexpr(bot, subexpr) || contains_subex
 }
 
 fn emit_define_struct(data: &NamedTuple) -> TokenStream {
-    let struct_name = syn::Ident::new(&data.name, Span::call_site());
+    let span: Span = Span::call_site();        // keep the original span
+    let name = data.name.to_string();         // make a String once
+
+    let struct_name: Ident = match name.as_str() {
+        "GateRealization" => Ident::new("CustomRealization", span),
+        "Transition"      => Ident::new("CustomTransition", span),
+        "Arch"            => Ident::new("CustomArch", span),
+        other             => Ident::new(other, span),
+    };
     let fields = data.fields.iter().map(|(name, ty)| {
         let field_name = syn::Ident::new(name, Span::call_site());
         let field_ty: syn::Type = emit_type(ty);
@@ -201,7 +209,7 @@ fn emit_define_arch_struct(arch: &Option<ArchitectureBlock>) -> TokenStream {
 }
 fn emit_impl_gate(imp_data: &NamedTuple) -> TokenStream {
     let struct_name = syn::Ident::new(&imp_data.name, Span::call_site());
-    quote! {impl GateImplementation for #struct_name {}}
+    quote! {impl GateImplementation for CustomRealization {}}
 }
 
 fn emit_impl_gate_methods(imp_data: &NamedTuple) -> TokenStream {
@@ -221,7 +229,7 @@ fn emit_impl_gate_methods(imp_data: &NamedTuple) -> TokenStream {
         }
     });
     quote! {
-        impl #struct_name {
+        impl CustomRealization {
             #(#getters)*
         }
     }
@@ -363,8 +371,8 @@ fn emit_impl_trans(t: &TransitionBlock, imp: &ImplBlock) -> TokenStream {
         None,
     );
     quote! {
-        impl Transition<#imp_struct_name, CustomArch> for #trans_struct_name {
-            fn apply(&self, step: &Step<#imp_struct_name>) -> Step<#imp_struct_name> {
+        impl Transition<CustomRealization, CustomArch> for CustomTransition {
+            fn apply(&self, step: &Step<CustomRealization>) -> Step<CustomRealization> {
                #apply_expr
             }
             fn repr(&self) -> String {
@@ -393,7 +401,7 @@ fn emit_available_transitions(t: &TransitionBlock, imp: &ImplBlock) -> TokenStre
     let trans_struct_name = syn::Ident::new(&t.data.name, Span::call_site());
     let imp_struct_name = syn::Ident::new(&imp.data.name, Span::call_site());
     quote! {
-            fn available_transitions(arch : &CustomArch, step : &Step<#imp_struct_name>) -> Vec<#trans_struct_name> {
+            fn available_transitions(arch : &CustomArch, step : &Step<CustomRealization>) -> Vec<CustomTransition> {
                #available_trans_expr
             }
     }
@@ -410,10 +418,10 @@ fn emit_realize_gate_function(imp: &ImplBlock) -> TokenStream {
     );
     quote! {
         fn realize_gate(
-            step: &Step<#imp_struct_name>,
+            step: &Step<CustomRealization>,
             arch: &CustomArch,
             gate: &Gate,
-        ) -> impl IntoIterator<Item = #imp_struct_name> {
+        ) -> impl IntoIterator<Item = CustomRealization> {
             #realize_gate_expr
         }
     }
@@ -449,7 +457,7 @@ fn emit_step_cost(p: &ProblemDefinition) -> TokenStream {
         Some(s) => {
             let step_cost_expr = emit_expr(
                 &s.cost,
-                &Context::DataTypeContext(DataType::Step),
+                &Context::Free,
                 &trans_struct_name,
                 &imp_struct_name,
                 None,
@@ -465,7 +473,7 @@ fn emit_step_cost(p: &ProblemDefinition) -> TokenStream {
         }
     };
     quote! {
-        fn custom_step_cost(step: &Step<#imp_struct_name>, arch: &CustomArch) -> f64 {
+        fn custom_step_cost(step: &Step<CustomRealization>, arch: &CustomArch) -> f64 {
         #step_cost_body
         }
     }
@@ -480,7 +488,7 @@ fn emit_solve_function(imp: &ImplBlock) -> TokenStream {
     let explore_orders = contains_subexpr(&imp.realize, &sub_expr);
     let imp_struct_name = syn::Ident::new(&imp.data.name, Span::call_site());
     quote! {
-        fn my_solve(c : &Circuit, a : &CustomArch) -> CompilerResult<#imp_struct_name> {
+        fn my_solve(c : &Circuit, a : &CustomArch) -> CompilerResult<CustomRealization> {
             return backend::solve(c, a, &|s| available_transitions(a, s), &realize_gate, custom_step_cost, Some(mapping_heuristic), #explore_orders);
     }
     }
@@ -495,7 +503,7 @@ fn emit_sabre_solve_function(imp: &ImplBlock) -> TokenStream {
     let explore_orders = contains_subexpr(&imp.realize, &sub_expr);
     let imp_struct_name = syn::Ident::new(&imp.data.name, Span::call_site());
     quote! {
-        fn my_sabre_solve(c : &Circuit, a : &CustomArch) -> CompilerResult<#imp_struct_name> {
+        fn my_sabre_solve(c : &Circuit, a : &CustomArch) -> CompilerResult<CustomRealization> {
             return backend::sabre_solve(c, a, &|s| available_transitions(a, s), &realize_gate, custom_step_cost, Some(mapping_heuristic), #explore_orders);
     }
     }
@@ -510,7 +518,7 @@ fn emit_joint_optimize_parallel_function(imp: &ImplBlock) -> TokenStream {
     let explore_orders = contains_subexpr(&imp.realize, &sub_expr);
     let imp_struct_name = syn::Ident::new(&imp.data.name, Span::call_site());
     quote! {
-        fn my_joint_solve_parallel(c : &Circuit, a : &CustomArch) -> CompilerResult<#imp_struct_name> {
+        fn my_joint_solve_parallel(c : &Circuit, a : &CustomArch) -> CompilerResult<CustomRealization> {
             return backend::solve_joint_optimize_parallel(c, a, &|s| available_transitions(a, s), &realize_gate, custom_step_cost, Some(mapping_heuristic), #explore_orders);
     }
     }
@@ -681,7 +689,7 @@ fn emit_expr(
                     quote! {#field_name : #emit_expr}
                 });
                 quote! {
-                    #trans_struct_name {
+                    CustomTransition {
                         #(#fields),*
                     }
                 }
@@ -744,7 +752,7 @@ fn emit_expr(
                     quote! {#field_name : #emit_expr}
                 });
                 quote! {
-                    #imp_struct_name {
+                    CustomRealization {
                         #(#fields),*
                     }
                 }
@@ -963,7 +971,7 @@ fn emit_access_expr(
     }
 }
 
-pub fn write_to_file(p: ProblemDefinition, filename: &str) {
+pub fn write_to_file(p: &ProblemDefinition, filename: &str) {
     let s = emit_program(p);
     let raw_str = s.to_string();
     let parse_res = syn::parse2(s);

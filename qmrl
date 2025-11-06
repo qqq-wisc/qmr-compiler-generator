@@ -4,7 +4,7 @@ file=${path##*/}
 base=${file%.qmrl}
 
 if [ "$1" == "compile" ]; then
-    QMRL_PATH=$(realpath $path) RUSTFLAGS="-Awarnings" cargo build --release --bin generator --jobs 1 
+    QMRL_PATH=$(realpath $path) RUSTFLAGS="-Awarnings" cargo build --release --bin generator 
     cp target/release/generator generated-solvers/${base}
 
 elif [ "$1" == 'debug' ]; then

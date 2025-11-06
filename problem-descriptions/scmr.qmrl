@@ -1,43 +1,37 @@
-GateRealization[
+RouteInfo:
     routed_gates = CX, T
-    name='ScmrGate'
-    data= (path : Vec<Location>)
+    GateRealization{path : Vec<Location>}
     realize_gate =  
     if (Gate.gate_type()) == CX 
         then 
             map(|x| -> GateRealization{path = x}, 
-            all_paths(arch, vertical_neighbors(Step.map[Gate.qubits[0]], Arch.width, Arch.height), 
-            horizontal_neighbors(Step.map[Gate.qubits[1]], arch.width), 
-            ((values(Step.map())).extend(Arch.magic_state_qubits()))
+            all_paths(arch, vertical_neighbors(State.map[Gate.qubits[0]], Arch.width, Arch.height), 
+            horizontal_neighbors(State.map[Gate.qubits[1]], arch.width), 
+            ((values(State.map())).extend(Arch.magic_state_qubits()))
             .extend(fold(Vec(), |x, acc| -> acc.extend(x), 
-            map(|x| -> x.implementation.(path()), Step.implemented_gates())))))
+            map(|x| -> x.implementation.(path()), State.implemented_gates())))))
         else   
             map(|x| -> GateRealization{path = x}, 
                 all_paths(arch, 
-                          vertical_neighbors(Step.map[Gate.qubits[0]], Arch.width, Arch.height), 
+                          vertical_neighbors(State.map[Gate.qubits[0]], Arch.width, Arch.height), 
                           fold(Vec(), |x, acc| -> acc.extend(x), 
                           map(|x| -> horizontal_neighbors(x, arch.width), Arch.magic_state_qubits())), 
-                          ((values(Step.map()))
+                          ((values(State.map()))
                           .extend(Arch.magic_state_qubits()))
                           .extend(fold(Vec(), |x, acc| -> acc.extend(x),
-                           map(|x| -> x.implementation.(path()), Step.implemented_gates())))))
- ]
+                           map(|x| -> x.implementation.(path()), State.implemented_gates())))))
+ 
 
-Transition[
-    name = 'Id'
-    data = (na : Location)
+TransitionInfo:
+    Transition{na : Location}
     get_transitions = (Vec()).push(Transition{na=Location(0)})
     apply = identity_application(step)
     cost = 0.0
 
-]
 
-Architecture[
-    name = 'ScmrArch'
-    data = (magic_state_qubits : Vec<Location>, alg_qubits : Vec<Location>, width : Int, height : Int)
+ArchInfo:
+    Arch{magic_state_qubits : Vec<Location>, alg_qubits : Vec<Location>, width : Int, height : Int}
     get_locations = Arch.alg_qubits()
-]
 
-Step[
+StateInfo:
     cost = 1.0
-]
