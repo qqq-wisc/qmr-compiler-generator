@@ -7,23 +7,6 @@ use ast::*;
 use emit::write_to_file;
 
 
-fn rss_kb() -> usize {
-    // Linux: read VmRSS from /proc
-    let contents = std::fs::read_to_string("/proc/self/status").unwrap_or_default();
-    for line in contents.lines() {
-        if let Some(val) = line.strip_prefix("VmRSS:") {
-            // "VmRSS:\t  123456 kB"
-            return val.trim().split_whitespace().next().unwrap_or("0").parse().unwrap_or(0);
-        }
-    }
-    0
-}
-macro_rules! mem {
-    ($label:expr) => {{
-        println!("cargo:warning=[mem] {:>24}: {:>10} KB", $label, rss_kb());
-    }};
-}
-
 fn test_program() -> ProblemDefinition {
     ProblemDefinition {
         imp: ImplBlock {
@@ -166,16 +149,13 @@ fn test_program() -> ProblemDefinition {
 fn from_file() {
     let path = env::var("QMRL_PATH").unwrap_or("/home/abtin/qmrsl/qmrl/problem-descriptions/nisq.qmrl".to_string());
     let p = parse::read_file(&path);
-    mem!("after chumsky parse");
     let ast = format!("{:?}", p);
     let _ = std::fs::write("debug", ast.as_bytes());
     let out_dir = env::var_os("OUT_DIR").unwrap();
     let dest_path = Path::new(&out_dir).join("custom.rs");
     write_to_file(&p, dest_path.to_str().unwrap());
-    mem!("after writing file");
 }
 
 fn main() {
-    mem!("initial");
     from_file();
 }
