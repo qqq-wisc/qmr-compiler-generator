@@ -35,7 +35,7 @@ To run a `.qmrl` run
 ```
 where `$FILE` is the relative path to your MAROL file ending in `.qmrl`. `<circuit>` expects a `.qasm` file, `<graph>` expects a JSON file decribing the shape of the architecture, and `--<solve-mode>` expects one of the following:
 * `--sabre`: SABRE search algorithm from [\[2\]](#references).
-* `--onepass`: ??
+* `--onepass`: Not bidirectional but SABRE
 * `--joint_optimize-par`: MaxState algorithm from [\[1\]](#references).
 
 # Writing MAROL
