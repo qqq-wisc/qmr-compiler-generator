@@ -127,7 +127,8 @@ fn contains_subexpr(e: &Expr, subexpr: &Expr) -> bool {
                 ident: _,
                 access: _,
             } => false,
-Expr::RangeExpr { bot, top } => contains_subexpr(bot, subexpr) || contains_subexpr(top, subexpr),
+        Expr::RangeExpr { bot, top } => contains_subexpr(bot, subexpr) || contains_subexpr(top, subexpr),
+        Expr::LetExpr { ident, bound, body } => contains_subexpr(bound, subexpr) || contains_subexpr(body, subexpr),
     }
 }
 
@@ -921,6 +922,12 @@ fn emit_expr(
             quote! {
                 (#left..#right)
             }
+        },
+        Expr::LetExpr { ident,  bound, body } => {
+            let right = emit_expr(bound, context, trans_struct_name, imp_struct_name, bound_var);
+            let body_quote =  emit_expr(body, context, trans_struct_name, imp_struct_name, bound_var);
+            let name = syn::Ident::new(ident, Span::call_site());
+            quote! {let #name = #right; #body_quote}
         },
     }
 }

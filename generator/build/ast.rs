@@ -87,6 +87,11 @@ pub enum Expr {
         then: Box<Expr>,
         els: Box<Expr>,
     },
+    LetExpr {
+        ident: String,
+        bound : Box<Expr>,
+        body : Box<Expr> 
+    },
     OptionMatch {
         expr: Box<Expr>,
         some_arm: Box<Expr>,
@@ -113,9 +118,9 @@ pub enum Expr {
         vec2: Box<Expr>,
     },
 
-    RangeExpr{
-        bot : Box<Expr>,
-        top : Box<Expr>
+    RangeExpr {
+        bot: Box<Expr>,
+        top: Box<Expr>,
     },
 
     TransitionConstructor(Vec<(String, Expr)>),
@@ -129,10 +134,10 @@ pub enum Expr {
 #[derive(Debug, PartialEq, PartialOrd)]
 pub enum BinOp {
     Equals,
-    Div, 
+    Div,
     Mult,
-    Plus, 
-    Minus
+    Plus,
+    Minus,
 }
 
 #[derive(Debug, PartialEq, PartialOrd)]
