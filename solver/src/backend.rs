@@ -8,6 +8,7 @@ use rayon::prelude::*;
 use signal_hook::consts::{SIGINT, SIGTERM};
 use signal_hook::flag;
 use std::collections::HashSet;
+use std::io::Write;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread;
@@ -248,6 +249,8 @@ fn route<
         steps,
         transitions: trans_taken,
         cost,
+        thread_id: Some(id.to_string()),
+        elapsed_time: None,
     };
 }
 
@@ -708,14 +711,19 @@ pub fn solve_joint_optimize<
     let mut current_map = start_map;
     let mut current_cost = best_cost;
     let mut temp = CONFIG.mapping_search_initial_temp;
-
-    let _ = serde_json::to_writer(std::io::stdout(), &best_res).map_err(IOError::OutputErr);
     let current_time = Instant::now();
-    println!(
-        "\nElapsed time: {}",
-        Duration::as_secs(&(current_time - start))
-    );
-    println!("Thread: {}", id);
+    let elapsed = Duration::as_secs(&(current_time - start));
+    let to_write = CompilerResult {
+        elapsed_time: Some(elapsed),
+        ..best_res
+    };
+    {
+        let stdout = std::io::stdout();
+        let mut out = stdout.lock();
+        let _ = serde_json::to_writer(&mut out, &to_write).map_err(IOError::OutputErr);
+        let _ = out.write_all(b"\n");
+    }
+
     // simulated annealing loop
     while temp > CONFIG.mapping_search_term_temp {
         // check for SIGINT/SIGTERM
@@ -752,13 +760,18 @@ pub fn solve_joint_optimize<
             best_cost = next_cost;
             current_map = next;
             current_cost = next_cost;
-            let _ = serde_json::to_writer(std::io::stdout(), &best_res).map_err(IOError::OutputErr);
             let current_time = Instant::now();
-            println!(
-                "\nElapsed time: {}",
-                Duration::as_secs(&(current_time - start))
-            );
-            println!("Thread: {}", id);
+            let elapsed = Duration::as_secs(&(current_time - start));
+            let to_write = CompilerResult {
+                elapsed_time: Some(elapsed),
+                ..best_res
+            };
+            {
+                let stdout = std::io::stdout();
+                let mut out = stdout.lock();
+                let _ = serde_json::to_writer(&mut out, &to_write).map_err(IOError::OutputErr);
+                let _ = out.write_all(b"\n");
+            }
         } else if accept {
             current_map = next;
             current_cost = next_cost;
@@ -767,7 +780,7 @@ pub fn solve_joint_optimize<
         temp *= CONFIG.mapping_search_cool_rate;
     }
 
-    best_res
+    to_write
 }
 
 pub fn solve_joint_optimize_parallel<

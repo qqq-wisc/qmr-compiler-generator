@@ -6,7 +6,7 @@ fn run_custom(circ_path: &str, graph_path: &str, solve_mode: &str) {
     let res = match solve_mode {
         "--sabre" => my_sabre_solve(&circ, &arch),
         "--onepass" => my_solve(&circ, &arch),
-        "--joint_optimize-par" => my_joint_solve_parallel(&circ, &arch),
+        "--amaro" => my_joint_solve_parallel(&circ, &arch),
         _ => panic!("Unrecognized solve mode"),
     };
     match serde_json::to_writer(std::io::stdout(), &res) {
@@ -18,7 +18,7 @@ fn run_custom(circ_path: &str, graph_path: &str, solve_mode: &str) {
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.len() != 4 {
-        println!("Usage: qmrl <circuit> <graph> --<solve-mode>");
+        println!("Usage: amaro run <circuit> <graph> --<solve-mode>");
         return;
     }
     run_custom(&args[1], &args[2], &args[3]);

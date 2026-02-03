@@ -13,7 +13,7 @@ elif [ "$1" == 'debug' ]; then
 elif [ "$1" == "run" ];
      then
         # run the program
-        generated-solvers/${base} $3 $4 $5 | python -m json.tool 
+        generated-solvers/${base} $3 $4 $5 
     else
         echo "Invalid argument. Please use 'debug', 'run' or 'compile'"
 fi

@@ -437,4 +437,6 @@ pub struct CompilerResult<T: GateImplementation> {
     pub steps: Vec<Step<T>>,
     pub transitions: Vec<String>,
     pub cost: f64,
+    pub thread_id : Option<String>,
+    pub elapsed_time : Option<u64>
 }
