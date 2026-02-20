@@ -1,59 +1,41 @@
-GateRealization[
+RouteInfo:
     routed_gates = Pauli
-    name='MQLSSGate'
-    data= (tree : Vec<Location>)
-    realize_gate = if (Gate.gate_type())==(PauliMeasurement)
-    then
-      map(|x| -> GateRealization{tree = x}, 
-      steiner_trees(arch, ((((Vec())
-                                    .extend(map(|x| -> horizontal_neighbors(
-                                        Step.map[x], Arch.width), Gate.x_indices())))
-                                    .extend(map(|x| -> vertical_neighbors(
-                                        Step.map[x], Arch.width, Arch.height), Gate.z_indices())))
-                                    .extend(map(|x| -> vertical_neighbors(
-                                        Step.map[x], Arch.width, Arch.height), Gate.y_indices())))
-                                    .extend(map(|x| -> horizontal_neighbors(
-                                        Step.map[x], Arch.width), Gate.y_indices())),
-                  ((values(Step.map()))
-                  .extend(Arch.magic_state_qubits()))
-                  .extend(fold(Vec(), 
-                  |x, acc| -> acc.extend(x), 
-                  map(|x| -> x.implementation.(tree()), Step.implemented_gates()))))
-        )
-    else 
-      map(|x| -> GateRealization{tree = x}, 
-      steiner_trees(arch, (((((Vec())
-                                    .extend(map(|x| -> horizontal_neighbors(
-                                        Step.map[x], Arch.width), Gate.x_indices())))
-                                    .extend(map(|x| -> vertical_neighbors(
-                                        Step.map[x], Arch.width, Arch.height), Gate.z_indices())))
-                                    .extend(map(|x| -> vertical_neighbors(
-                                        Step.map[x], Arch.width, Arch.height), Gate.y_indices())))
-                                    .extend(map(|x| -> horizontal_neighbors(
-                                        Step.map[x], Arch.width), Gate.y_indices())))
-                                    .extend(map(|x| -> horizontal_neighbors(x, arch.width), 
-                                                Arch.magic_state_qubits())),
-                  ((values(Step.map())).extend(Arch.magic_state_qubits()))
-                  .extend(fold(Vec(), |x, acc| -> acc.extend(x), 
-                  map(|x| -> x.implementation.(tree()), Step.implemented_gates()))))
-        )
- ]
+    GateRealization{tree : Vec<Location>}
+    realize_gate = if (Gate.gate_type()) == PauliMeasurement
+        then
+            map(|x| -> GateRealization{tree = x},
+                steiner_trees(arch, ((((Vec())
+                    .extend(map(|x| -> horizontal_neighbors(State.map[x], Arch.width), Gate.x_indices())))
+                    .extend(map(|x| -> vertical_neighbors(State.map[x], Arch.width, Arch.height), Gate.z_indices())))
+                    .extend(map(|x| -> vertical_neighbors(State.map[x], Arch.width, Arch.height), Gate.y_indices())))
+                    .extend(map(|x| -> horizontal_neighbors(State.map[x], Arch.width), Gate.y_indices())),
+                ((values(State.map()))
+                .extend(Arch.magic_state_qubits()))
+                .extend(fold(Vec(),
+                    |x, acc| -> acc.extend(x),
+                    map(|x| -> x.implementation.(tree()), State.implemented_gates())))))
+        else
+            map(|x| -> GateRealization{tree = x},
+                steiner_trees(arch, (((((Vec())
+                    .extend(map(|x| -> horizontal_neighbors(State.map[x], Arch.width), Gate.x_indices())))
+                    .extend(map(|x| -> vertical_neighbors(State.map[x], Arch.width, Arch.height), Gate.z_indices())))
+                    .extend(map(|x| -> vertical_neighbors(State.map[x], Arch.width, Arch.height), Gate.y_indices())))
+                    .extend(map(|x| -> horizontal_neighbors(State.map[x], Arch.width), Gate.y_indices())))
+                    .extend(map(|x| -> horizontal_neighbors(x, Arch.width), Arch.magic_state_qubits())),
+                ((values(State.map())).extend(Arch.magic_state_qubits()))
+                .extend(fold(Vec(),
+                    |x, acc| -> acc.extend(x),
+                    map(|x| -> x.implementation.(tree()), State.implemented_gates())))))
 
-Transition[
-    name = 'Id'
-    data = (na : Location)
-    get_transitions = (Vec()).push(Transition{na=Location(0)})
+TransitionInfo:
+    Transition{na : Location}
+    get_transitions = (Vec()).push(Transition{na = Location(0)})
     apply = identity_application(step)
     cost = 0.0
 
-]
+ArchInfo:
+    Arch{magic_state_qubits : Vec<Location>, alg_qubits : Vec<Location>, width : Int, height : Int}
+    get_locations = Arch.alg_qubits()
 
-Architecture[
-  name = 'MQLSSArch'
-  data = (magic_state_qubits : Vec<Location>, alg_qubits : Vec<Location>, width : Int, height : Int)
-  get_locations = Arch.alg_qubits()
-]
-
-Step[
+StateInfo:
     cost = 1.0
-]
