@@ -9,3 +9,4 @@
 *.log
 memlog.txt
 rustc-time.sh
+generator/debug

@@ -617,7 +617,7 @@ fn emit_expr(
                         );
                         quote! {
                             let container = if #emit_cond {#emit_container_then} else{#emit_container_else};
-                            container.into_iter().map(|x| #emit_func)
+                            container.into_iter().map(move |x| #emit_func)
 
                         }
                     }
@@ -742,7 +742,7 @@ fn emit_expr(
                 let var  = syn::Ident::new(bv, Span::call_site());
                 let emit_func = emit_expr(f, context, &trans_struct_name, &imp_struct_name, Some(bv));
                 quote! {
-                    #emit_container.into_iter().map(|#var| #emit_func)
+                    #emit_container.into_iter().map(move |#var| #emit_func)
                 }
             }
         Expr::ImplConstructorExpr(vec) => {
