@@ -32,19 +32,55 @@
 }
 }}
 
-RouteInfo:
+let end_segments_cost = 80e-6 + 5e-6 + 5e-6 + 80e-6
+let (col_a, col_b) = (
+        pair.0.get_index() / (2 * arch.trap_size),
+        pair.1.get_index() / (2 * arch.trap_size),
+) 
+let junction_count = abs(col_a - col_b) + 1
+let y count_a = 
+if col_a == 0 || col_a == arch.width - 1
+    then 1
+    else 0
+let y_count_b
+    if col_b == 0 || col_b == arch.width - 1
+        then 1
+        else 0
+let y_count = y_count_a + y_count_b
+let x_count = junction_count - y_count_a - y_count_b 
+let y_count_cost = y_count * (100e-6 + 5e-6)
+let x_count_cost = x_count * (120e-6 + 5e-6);
+let swap_cos_a = if arch.get_outer_trap_positions().contains(&pair.0) 
+    then 0
+    else 42e-6
+let swap_cost_b = if arch.get_outer_trap_positions().contains(&pair.1) 
+    then 0
+    else 42e-6
+let swap_cost = swap_cost_a  + swap_cost_b
+let get_pair_cost =  end_segments_cost + y_count_cost+x_count_cost+Swap
+in fold(0, |x, acc| -> max(x, acc), map(|x| -> get_pair_cost(x, Arch), Transition.edges))
+
+
+
+
+GateRealization[
     routed_gates = CX
-    GateRealization{u : Location, v : Location}
-    realize_gate = if Arch.trap_edges.contains((State.map[Gate.qubits[0]], State.map[Gate.qubits[1]]))
-            then Some(GateRealization{u = State.map[Gate.qubits[0]], v = State.map[Gate.qubits[1]]})
+    name = 'IonCNOT'
+    data = (u : Location, v : Location)
+    realize_gate = if Arch.trap_edges.contains((Step.map[Gate.qubits[0]],Step.map[Gate.qubits[1]]))
+            then Some(GateRealization{u = Step.map[Gate.qubits[0]],v = Step.map[Gate.qubits[1]]})
             else None
+]
 
-TransitionInfo:
-    Transition{edges : Vec<Vec<Location>>}
+Transition[
+    name = 'IonTransition'
+    data = (edges : Vec<Vec<Location>>)
     get_transitions = combinations(Arch.trap_vertices(), 2)
-    apply = identity_application(step)
     cost = fold(0, |x, acc| -> max(x, acc), map(|x| -> get_pair_cost(x, Arch), Transition.edges))
+]
 
-ArchInfo:
-    Arch{trap_positions : Vec<Location>, trap_edges : Vec<Vec<Location>>, width : Int, height : Int}
-    get_locations = Arch.trap_positions
+Architecture[
+  name = 'IonArch'
+  data = (trap_positions : Vec<Location>, trap_edges : Vec<Vec<Location>>, width : Int, height : Int)
+  get_locations = Arch.trap_positions()
+]
