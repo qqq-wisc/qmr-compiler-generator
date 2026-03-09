@@ -1,52 +1,44 @@
-GateRealization[
+RouteInfo:
     routed_gates = CX, T
-    name='ILQGate'
-    data= (path : Vec<Location>)
-    realize_gate = map(|x| -> GateRealization{path = x}, 
-        if (Gate.gate_type()) == CX 
-            then 
-                if ((Step.map[Gate.qubits[0]]) / Arch.stack_size) == ((Step.map[Gate.qubits[1]]) / Arch.stack_size)
-                    then 
-                        all_paths(arch, (Vec()).push(Step.map[Gate.qubits[0]]), (Vec()).push(Step.map[Gate.qubits[1]]), Vec())
-                    else 
-                        all_paths(arch, 
-                                  fold(Vec(), 
+    GateRealization{path : Vec<Location>}
+    realize_gate = map(|x| -> GateRealization{path = x},
+        if (Gate.gate_type()) == CX
+            then
+                if ((State.map[Gate.qubits[0]]) / Arch.stack_size) == ((State.map[Gate.qubits[1]]) / Arch.stack_size)
+                    then
+                        all_paths(arch, (Vec()).push(State.map[Gate.qubits[0]]), (Vec()).push(State.map[Gate.qubits[1]]), Vec())
+                    else
+                        all_paths(arch,
+                                  fold(Vec(),
                                     |x, acc| -> acc.extend(x),
-                                       map(|k| -> 
-                                            map(|n| -> ((n)*Arch.stack_size) + k, 
-                                                vertical_neighbors((Step.map[Gate.qubits[0]]) / Arch.arch.stack_size, arch.width, arch.height)),
-                                            (0..Arch.stack_size))),
-                                                            
-                        horizontal_neighbors(Step.map[Gate.qubits[1]], arch.width), 
-                        ((values(Step.map())).extend(Arch.magic_state_qubits()))
-                        .extend(fold(Vec(), |x, acc| -> acc.extend(x), 
-                        map(|x| -> x.implementation.(path()), Step.implemented_gates()))))
-             else   
-                all_paths(arch, 
-                          vertical_neighbors(Step.map[Gate.qubits[0]], Arch.width, Arch.height), 
-                          fold(Vec(), |x, acc| -> acc.extend(x), 
-                          map(|x| -> horizontal_neighbors(x, arch.width), Arch.magic_state_qubits())), 
-                          ((values(Step.map()))
+                                       map(|k| ->
+                                            map(|n| -> ((n)*Arch.stack_size) + k,
+                                                vertical_neighbors((State.map[Gate.qubits[0]]) / Arch.stack_size, arch.width, arch.height)),
+                                            range(0..Arch.stack_size))),
+
+                        horizontal_neighbors(State.map[Gate.qubits[1]], arch.width),
+                        ((values(State.map())).extend(Arch.magic_state_qubits()))
+                        .extend(fold(Vec(), |x, acc| -> acc.extend(x),
+                        map(|x| -> x.implementation.(path()), State.implemented_gates()))))
+             else
+                all_paths(arch,
+                          vertical_neighbors(State.map[Gate.qubits[0]], Arch.width, Arch.height),
+                          fold(Vec(), |x, acc| -> acc.extend(x),
+                          map(|x| -> horizontal_neighbors(x, arch.width), Arch.magic_state_qubits())),
+                          ((values(State.map()))
                           .extend(Arch.magic_state_qubits()))
                           .extend(fold(Vec(), |x, acc| -> acc.extend(x),
-                           map(|x| -> x.implementation.(path()), Step.implemented_gates())))))
- ]
+                           map(|x| -> x.implementation.(path()), State.implemented_gates())))))
 
-Transition[
-    name = 'Id'
-    data = (na : Location)
+TransitionInfo:
+    Transition{na : Location}
     get_transitions = (Vec()).push(Transition{na=Location(0)})
     apply = identity_application(step)
     cost = 0.0
 
-]
-
-Architecture[
-    name = 'ILQArch'
-    data = (magic_state_qubits : Vec<Location>, alg_qubits : Vec<Location>, width : Int, height : Int, stack_size : Int)
+ArchInfo:
+    Arch{magic_state_qubits : Vec<Location>, alg_qubits : Vec<Location>, width : Int, height : Int, stack_size : Int}
     get_locations = Arch.alg_qubits()
-]
 
-Step[
+StateInfo:
     cost = 1.0
-]
