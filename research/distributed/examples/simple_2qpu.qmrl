@@ -1,0 +1,73 @@
+-- Two-QPU Distributed NISQ Routing
+-- Problem Statement 1 prototype: minimal extension of nisq.qmrl to 2 QPUs
+--
+-- Architecture assumption:
+--   QPU 0: locations 0..num_qpus-1    (e.g., 0,1,2,3,4)
+--   QPU 1: locations num_qpus..2*num_qpus-1  (e.g., 5,6,7,8,9)
+--   Inter-QPU link: comm qubit at Location(4) on QPU 0 and Location(5) on QPU 1
+--
+-- New built-ins required (not yet implemented):
+--   qpu_id(loc : Location) -> Int
+--   same_qpu(loc0 : Location, loc1 : Location) -> Bool
+--
+-- This file sketches the intended syntax. It will NOT compile until
+-- qpu_id/same_qpu are added to parse.rs and structures.rs.
+
+RouteInfo:
+    routed_gates = CX
+    GateRealization{u : Location, v : Location, remote : Bool}
+    realize_gate =
+        if same_qpu(State.map[Gate.qubits[0]], State.map[Gate.qubits[1]])
+            then
+                -- Local gate: both qubits on same QPU, check connectivity
+                if Arch.contains_edge((State.map[Gate.qubits[0]], State.map[Gate.qubits[1]]))
+                    then Some(GateRealization{
+                            u      = State.map[Gate.qubits[0]],
+                            v      = State.map[Gate.qubits[1]],
+                            remote = false
+                         })
+                    else None
+            else
+                -- Remote gate: qubits on different QPUs
+                -- TeleGate model: costs one e-bit, uses comm qubits
+                -- Non-interference: at most one remote gate per QPU per state
+                Some(GateRealization{
+                    u      = State.map[Gate.qubits[0]],
+                    v      = State.map[Gate.qubits[1]],
+                    remote = true
+                })
+
+
+TransitionInfo:
+    -- Transitions are intra-QPU swaps only
+    -- Cross-QPU qubit movement is handled via TeleData in realize_gate (future work)
+    Transition{edge : (Location, Location)}
+    get_transitions = (map(|x| -> Transition{edge = x}, Arch.edges()))
+                        .push(Transition{edge = (Location(0), Location(0))})
+    apply = value_swap(Transition.edge.(0), Transition.edge.(1))
+    cost  = if (Transition.edge) == (Location(0), Location(0))
+                then 0.0
+                else 1.0
+
+
+ArchInfo:
+    -- Extended architecture with multi-QPU fields
+    Arch{
+        num_qpus    : Int,
+        qpu_sizes   : Vec<Int>,
+        link_cost   : Float,
+        comm_qubits : Vec<Location>,
+        alg_qubits  : Vec<Location>
+    }
+    get_locations = Arch.alg_qubits()
+
+
+StateInfo:
+    -- Total cost = local swap count + e-bit count for remote gates
+    -- E-bit cost charged per remote GateRealization in current state
+    cost = fold(0.0,
+                |x, acc| -> acc + x,
+                map(|x| -> if x.implementation.(remote())
+                               then Arch.link_cost
+                               else 0.0,
+                    State.gates()))

@@ -1,0 +1,21 @@
+{
+    "comment": "Two 5-qubit linear chains connected by a single inter-QPU link",
+    "comment2": "QPU 0: locations 0-4 (linear chain), QPU 1: locations 5-9 (linear chain)",
+    "comment3": "Inter-QPU link: Location 4 (QPU 0 comm qubit) <-> Location 5 (QPU 1 comm qubit)",
+    "graph": [
+        [0, 1], [1, 0],
+        [1, 2], [2, 1],
+        [2, 3], [3, 2],
+        [3, 4], [4, 3],
+        [4, 5], [5, 4],
+        [5, 6], [6, 5],
+        [6, 7], [7, 6],
+        [7, 8], [8, 7],
+        [8, 9], [9, 8]
+    ],
+    "num_qpus": 2,
+    "qpu_sizes": [5, 5],
+    "link_cost": 1.0,
+    "comm_qubits": [4, 5],
+    "alg_qubits": [0, 1, 2, 3, 6, 7, 8, 9]
+}
