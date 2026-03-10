@@ -66,13 +66,13 @@ The generated compiler appears in `generated-solvers/nisq/`.
 
 **Run the compiler on a quantum circuit:**
 ```bash
-./amaro run problem-descriptions/nisq.qmrl <circuit.qasm> <arch.json> --sabre
+./amaro run problem-descriptions/nisq.qmrl <circuit.qasm> <arch.json> --onepass
 ```
 
 Where:
 - `<circuit.qasm>` : Quantum circuit in OpenQASM format
 - `<arch.json>` : Architecture connectivity graph in JSON
-- `--sabre` : Search algorithm (options: `--sabre`, `--onepass`, `--joint_optimize-par`)
+- `--sabre` : Search algorithm (options: `--sabre`, `--onepass`, `--amaro`)
 
 **Debug a specification:**
 ```bash
@@ -252,8 +252,8 @@ Bidirectional SABRE algorithm from [Li et al.](https://arxiv.org/abs/1809.02573)
 ### `--onepass`
 Unidirectional SABRE (faster but may find suboptimal solutions).
 
-### `--joint_optimize-par`
-MaxState algorithm from [Molavi et al.](https://arxiv.org/pdf/2508.10781). Optimizes mapping and routing jointly.
+### `--amaro`
+Amaro algorithm from [Molavi et al.](https://arxiv.org/pdf/2508.10781). Optimizes mapping and routing jointly.
 
 ---
 
