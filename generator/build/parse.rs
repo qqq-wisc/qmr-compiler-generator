@@ -13,11 +13,13 @@ fn type_parser() -> impl Parser<char, ast::Ty, Error = Simple<char>> {
         let atom_ty = just("Location")
             .map(|_| ast::Ty::LocationTy)
             .or(just("Int").map(|_| ast::Ty::IntTy))
-            .or(just("Float").map(|_| ast::Ty::FloatTy));
+            .or(just("Float").map(|_| ast::Ty::FloatTy))
+            .or(just("Bool").map(|_| ast::Ty::BoolTy));
 
         let tuple_ty = type_parser
             .clone()
-            .separated_by(just(","))
+            .padded()
+            .separated_by(just(",").padded())
             .at_least(1)
             .delimited_by(just("("), just(")"))
             .map(ast::Ty::TupleTy);
@@ -594,9 +596,19 @@ fn parser() -> impl Parser<char, ProblemDefinition, Error = Simple<char>> {
     prob_def
 }
 
+fn strip_line_comments(src: &str) -> String {
+    src.lines()
+        .map(|line| match line.find("//") {
+            Some(pos) => &line[..pos],
+            None => line,
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 pub(crate) fn read_file(filename: &str) -> ProblemDefinition {
-    let src = std::fs::read_to_string(filename).expect("Reading qmrl file");
-    println!("{:?}", parser().parse(src.clone()).unwrap());
+    let raw = std::fs::read_to_string(filename).expect("Reading qmrl file");
+    let src = strip_line_comments(&raw);
     return parser()
         .parse(src)
         .expect("Failed to parse problem definition");
