@@ -1,5 +1,5 @@
 -- Two-QPU Distributed Routing with Bell Pair Budget Constraint
--- Problem 2: Communication Qubit Budget-Aware Scheduling
+-- Problem: Communication Qubit Budget-Aware Scheduling
 --
 -- Extends simple_2qpu.qmrl with Bell pair generation hardware parameters.
 -- New constraint: MaxState enforces max_bell_pairs_per_cycle per QEC cycle.

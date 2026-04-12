@@ -1,8 +1,5 @@
-# Literature Review Pointer
+# Literature Review
 
-The full literature review lives at:
-
-`~/Desktop/Amaro Documents/problem2_literature_review.md`
 
 ## One-Line Summary Per Paper
 
@@ -19,5 +16,4 @@ The full literature review lives at:
 | Hypergraph Partitioning (PRA 2019) | ❌ | Foundational, pre-hardware-aware |
 | Hardware-SW Co-design (arXiv:2503.18329) | Partial | Wrong level of detail |
 
-**Bottom line:** No existing compiler takes `N_comm`, `P_aa`, `τ_attempt`, `R_max` as inputs
-or enforces `R_Bell × T_cycle` as a hard scheduling constraint.
+**Bottom line:** No existing compiler takes `N_comm`, `P_aa`, `τ_attempt`, `R_max` as inputs or enforces `R_Bell × T_cycle` as a hard scheduling constraint.

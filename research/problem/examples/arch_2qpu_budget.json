@@ -1,5 +1,5 @@
 {
-    "_comment": "Two 5-qubit QPUs connected by one inter-QPU link. Problem 2 Bell pair budget extension.",
+    "_comment": "Two 5-qubit QPUs connected by one inter-QPU link. Problem Bell pair budget extension.",
 
     "graph": [
         [0, 1], [1, 2], [2, 3], [3, 4],
@@ -12,7 +12,7 @@
     "comm_qubits": [4, 5],
     "alg_qubits": [0, 1, 2, 3, 6, 7, 8, 9],
 
-    "_comment_problem2": "Bell pair generation parameters — single optical cavity, L=20",
+    "_comment_problem": "Bell pair generation parameters — single optical cavity, L=20",
     "n_comm_qubits": 160,
     "bell_success_prob": 0.10,
     "bell_attempt_interval": 1.0,

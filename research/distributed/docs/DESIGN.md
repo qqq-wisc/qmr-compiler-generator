@@ -1,7 +1,5 @@
 # Distributed Quantum Routing in Amaro - Design Document
 
-**Status:** Sketch / Research Phase
-**Branch:** `research/distributed-quantum-routing`
 **Problem Statement:** Extending Amaro with Multi-QPU Architecture and Inter-QPU Transition Costs
 
 ---
@@ -220,6 +218,7 @@ These extend the built-in function table in `generator/build/parse.rs` and `amar
 
 ## 10. Key References
 
-- Amaro.pdf (Molavi et al., 2025): Section 4.2 (Amaro grammar), Section 5 (MaxState), Section 6 (case studies), Theorem 5.7
-- Survey.pdf (2022): Section 5.3 (TeleGate/TeleData), Section 6.1 (DQC compilation steps)
-- Multilevel Framework.pdf (Burt, Chen, Leung, 2026): Eq.(18)-(19) (e-bit cost), Algorithm 1 (gate grouping), Section 2.2 (remote gate taxonomy)
+- Generating Compilers for Qubit Mapping and Routing (Molavi et al., 2025): Section 4.2 (Amaro grammar), Section 5 (MaxState), Section 6 (case studies), Theorem 5.7
+- Distributed Quantum Computing: a Survey
+ (2022): Section 5.3 (TeleGate/TeleData), Section 6.1 (DQC compilation steps)
+- A Multilevel Framework for Partitioning Quantum Circuits (Burt, Chen, Leung, 2026): Eq.(18)-(19) (e-bit cost), Algorithm 1 (gate grouping), Section 2.2 (remote gate taxonomy)

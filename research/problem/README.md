@@ -1,20 +1,16 @@
-# Problem 2: Communication Qubit Budget-Aware Scheduling
+# Problem : Communication Qubit Budget-Aware Scheduling
 
-This directory contains research and implementation for adding Bell pair generation rate
-constraints to Amaro's distributed quantum routing — Problem Statement 2 of the
-Amaro-DQC extension.
+This directory contains research and implementation for adding Bell pair generation rate constraints to Amaro's distributed quantum routing — Problem Statement of the Amaro-DQC extension.
 
 ## The Problem
 
-Current distributed quantum compilers (pytket-DQC, disqco) assume Bell pairs are
-available on-demand. In reality, Bell pair generation rate is bounded by hardware:
+Current distributed quantum compilers (pytket-DQC, disqco) assume Bell pairs are available on-demand. In reality, Bell pair generation rate is bounded by hardware:
 
 ```
 R_Bell(N_comm) = P_aa × min(N_comm / τ_attempt, R_max)
 ```
 
-A schedule requiring 80 Bell pairs per cycle when hardware can only generate 40 is
-physically unimplementable — yet reported as valid by existing compilers.
+A schedule requiring 80 Bell pairs per cycle when hardware can only generate 40 is physically unimplementable — yet reported as valid by existing compilers.
 
 ## Directory Contents
 
@@ -42,22 +38,19 @@ For L=20 surface code: baseline Bell pair demand = 2L = 40 pairs/cycle.
 
 ## Building on Problem 1
 
-This branch (`feature/comm-qubit-budget-scheduling`) builds on the distributed
-routing infrastructure from `research/distributed-quantum-routing`:
+This branch (`feature/comm-qubit-budget-scheduling`) builds on the distributed routing infrastructure from `research/distributed-quantum-routing`:
 - `qpu_id()`, `same_qpu()`: already designed
 - `num_qpus`, `comm_qubits`, `alg_qubits` in ArchInfo: already designed
 - `GateRealization.remote: Bool`: already designed
 
-Problem 2 adds the Bell pair generation physics on top of this base.
+The Problem adds the Bell pair generation physics on top of this base.
 
 ## Important: Single-QPU Routing Unchanged
 
-New fields are optional with backward-compatible defaults. All existing QMRL files
-(nisq, scmr, ilq, mqlss, etc.) and all 154 extension tests pass unmodified.
+New fields are optional with backward-compatible defaults. All existing QMRL files (nisq, scmr, ilq, mqlss, etc.) and all extension tests pass unmodified.
 
 ## References
 
-- Sinclair et al., "Fault-tolerant optical interconnects for neutral-atom arrays"
-  Physical Review Research 7, 013313 (2025); arXiv:2408.08955
-- Amaro paper: Molavi et al., arXiv:2508.10781v2 (2025)
-- Design document: `docs/PROBLEM2_DESIGN.md`
+- Sinclair et al., "Fault-tolerant optical interconnects for neutral-atom arrays" Physical Review Research 7, 013313 (2025); arXiv:2408.08955
+- Generating Compilers for Qubit Mapping and Routing: Molavi et al., arXiv:2508.10781v2 (2025)
+- Design document: `docs/PROBLEM_DESIGN.md`
