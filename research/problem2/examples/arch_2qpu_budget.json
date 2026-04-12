@@ -1,0 +1,31 @@
+{
+    "_comment": "Two 5-qubit QPUs connected by one inter-QPU link. Problem 2 Bell pair budget extension.",
+
+    "graph": [
+        [0, 1], [1, 2], [2, 3], [3, 4],
+        [5, 6], [6, 7], [7, 8], [8, 9]
+    ],
+
+    "num_qpus": 2,
+    "qpu_sizes": [5, 5],
+    "link_cost": 1.0,
+    "comm_qubits": [4, 5],
+    "alg_qubits": [0, 1, 2, 3, 6, 7, 8, 9],
+
+    "_comment_problem2": "Bell pair generation parameters — single optical cavity, L=20",
+    "n_comm_qubits": 160,
+    "bell_success_prob": 0.10,
+    "bell_attempt_interval": 1.0,
+    "max_bell_rate": 10.0,
+    "code_distance": 20,
+
+    "_derived_check": {
+        "_note": "These are computed values for human verification, not parsed by the runtime.",
+        "R_Bell_MHz": "P_aa × min(N_comm / τ_attempt, R_max) = 0.10 × min(160/1.0, 10) = 0.10 × 10 = 1.0 MHz",
+        "syndrome_bell_demand": "2 × L = 2 × 20 = 40 Bell pairs/cycle",
+        "T_cycle_baseline_us": "40 / 1.0 = 40 μs",
+        "max_bell_pairs_per_40us": "floor(1.0 × 40) = 40",
+        "gate_bell_budget_per_40us": "40 (total) - 40 (syndrome) = 0 extra gates per baseline cycle",
+        "saturated": "N_comm / τ_attempt = 160 ≥ R_max = 10: YES, at saturation"
+    }
+}
