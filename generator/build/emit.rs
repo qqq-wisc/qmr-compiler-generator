@@ -25,7 +25,8 @@ pub fn emit_program(p: &ProblemDefinition) -> TokenStream {
     let implement_arch_methods = emit_impl_arch_methods(&p.arch);
     let implement_trans_trait = emit_impl_trans(&p.trans, &p.imp);
     let define_available_transitions = emit_available_transitions(&p.trans, &p.imp);
-    let define_realize_gate_function = emit_realize_gate_function(&p.imp);
+    let define_realize_gate_function = emit_realize_gate_function(&p.imp, &p.arch);
+    let define_is_remote_function = emit_is_remote_function(&p.imp);
     let define_solve_function = emit_solve_function(&p.imp);
     let define_sabre_solve_function = emit_sabre_solve_function(&p.imp);
     let define_joint_solve_parallel_function = emit_joint_optimize_parallel_function(&p.imp);
@@ -39,6 +40,7 @@ pub fn emit_program(p: &ProblemDefinition) -> TokenStream {
         #define_transition_struct
         #implement_gi_trait
         #implement_gi_getters
+        #define_is_remote_function
         #implement_arch_trait
         #implement_arch_methods
         #implement_trans_trait
@@ -277,6 +279,10 @@ fn emit_impl_arch(arch: &Option<ArchitectureBlock>) -> TokenStream {
 
 fn arch_has_field(arch: &ArchitectureBlock, name: &str) -> bool {
     arch.data.fields.iter().any(|(n, _)| n == name)
+}
+
+fn impl_has_field(imp: &NamedTuple, name: &str) -> bool {
+    imp.fields.iter().any(|(n, _)| n == name)
 }
 
 /// Emits multi-QPU routing and Bell pair generation methods on CustomArch,
@@ -525,7 +531,21 @@ fn emit_available_transitions(t: &TransitionBlock, imp: &ImplBlock) -> TokenStre
     }
 }
 
-fn emit_realize_gate_function(imp: &ImplBlock) -> TokenStream {
+/// Emits `fn is_remote(r: &CustomRealization) -> bool` when GateRealization
+/// has a `remote : Bool` field, enabling the design-doc usage pattern
+/// `if is_remote(x.implementation)`.
+fn emit_is_remote_function(imp: &ImplBlock) -> TokenStream {
+    if !impl_has_field(&imp.data, "remote") {
+        return quote! {};
+    }
+    quote! {
+        fn is_remote(r: &CustomRealization) -> bool {
+            r.remote()
+        }
+    }
+}
+
+fn emit_realize_gate_function(imp: &ImplBlock, arch: &Option<ArchitectureBlock>) -> TokenStream {
     let imp_struct_name = syn::Ident::new(&imp.data.name, Span::call_site());
     let realize_gate_expr = emit_expr(
         &imp.realize,
@@ -534,12 +554,39 @@ fn emit_realize_gate_function(imp: &ImplBlock) -> TokenStream {
         &imp_struct_name,
         None,
     );
+
+    // Inject Bell pair budget check when all four hardware fields + code_distance
+    // are present and GateRealization has a `remote` field.
+    let budget_preamble = match arch {
+        Some(a)
+            if arch_has_field(a, "n_comm_qubits")
+                && arch_has_field(a, "bell_success_prob")
+                && arch_has_field(a, "bell_attempt_interval")
+                && arch_has_field(a, "max_bell_rate")
+                && arch_has_field(a, "code_distance")
+                && impl_has_field(&imp.data, "remote") =>
+        {
+            quote! {
+                let t_cycle = arch.syndrome_bell_demand() as f64 / arch.bell_pair_rate();
+                let budget = arch.gate_bell_budget(t_cycle);
+                let remote_count = step.implemented_gates.iter()
+                    .filter(|g| g.implementation.remote())
+                    .count();
+                if remote_count >= budget {
+                    return None;
+                }
+            }
+        }
+        _ => quote! {},
+    };
+
     quote! {
         fn realize_gate(
             step: &Step<CustomRealization>,
             arch: &CustomArch,
             gate: &Gate,
         ) -> impl IntoIterator<Item = CustomRealization> {
+            #budget_preamble
             #realize_gate_expr
         }
     }
