@@ -25,11 +25,11 @@ pub fn emit_program(p: &ProblemDefinition) -> TokenStream {
     let implement_arch_methods = emit_impl_arch_methods(&p.arch);
     let implement_trans_trait = emit_impl_trans(&p.trans, &p.imp);
     let define_available_transitions = emit_available_transitions(&p.trans, &p.imp);
-    let define_realize_gate_function = emit_realize_gate_function(&p.imp, &p.arch);
+    let define_realize_gate_function = emit_realize_gate_function(&p.imp);
     let define_is_remote_function = emit_is_remote_function(&p.imp);
-    let define_solve_function = emit_solve_function(&p.imp);
-    let define_sabre_solve_function = emit_sabre_solve_function(&p.imp);
-    let define_joint_solve_parallel_function = emit_joint_optimize_parallel_function(&p.imp);
+    let define_solve_function = emit_solve_function(&p.imp, &p.arch);
+    let define_sabre_solve_function = emit_sabre_solve_function(&p.imp, &p.arch);
+    let define_joint_solve_parallel_function = emit_joint_optimize_parallel_function(&p.imp, &p.arch);
     let define_step_cost = emit_step_cost(&p);
     let define_mapping_heuristic = emit_mapping_heuristic();
     quote! {
@@ -545,7 +545,7 @@ fn emit_is_remote_function(imp: &ImplBlock) -> TokenStream {
     }
 }
 
-fn emit_realize_gate_function(imp: &ImplBlock, arch: &Option<ArchitectureBlock>) -> TokenStream {
+fn emit_realize_gate_function(imp: &ImplBlock) -> TokenStream {
     let imp_struct_name = syn::Ident::new(&imp.data.name, Span::call_site());
     let realize_gate_expr = emit_expr(
         &imp.realize,
@@ -554,41 +554,51 @@ fn emit_realize_gate_function(imp: &ImplBlock, arch: &Option<ArchitectureBlock>)
         &imp_struct_name,
         None,
     );
-
-    // Inject Bell pair budget check when all four hardware fields + code_distance
-    // are present and GateRealization has a `remote` field.
-    let budget_preamble = match arch {
-        Some(a)
-            if arch_has_field(a, "n_comm_qubits")
-                && arch_has_field(a, "bell_success_prob")
-                && arch_has_field(a, "bell_attempt_interval")
-                && arch_has_field(a, "max_bell_rate")
-                && arch_has_field(a, "code_distance")
-                && impl_has_field(&imp.data, "remote") =>
-        {
-            quote! {
-                let t_cycle = arch.syndrome_bell_demand() as f64 / arch.bell_pair_rate();
-                let budget = arch.gate_bell_budget(t_cycle);
-                let remote_count = step.implemented_gates.iter()
-                    .filter(|g| g.implementation.remote())
-                    .count();
-                if remote_count >= budget {
-                    return None;
-                }
-            }
-        }
-        _ => quote! {},
-    };
-
     quote! {
         fn realize_gate(
             step: &Step<CustomRealization>,
             arch: &CustomArch,
             gate: &Gate,
         ) -> impl IntoIterator<Item = CustomRealization> {
-            #budget_preamble
             #realize_gate_expr
         }
+    }
+}
+
+/// Returns true when all five Bell pair hardware fields and a `remote` field
+/// on GateRealization are present — i.e., budget enforcement should be active.
+fn has_bell_budget(arch: &Option<ArchitectureBlock>, imp: &ImplBlock) -> bool {
+    match arch {
+        Some(a) => {
+            arch_has_field(a, "n_comm_qubits")
+                && arch_has_field(a, "bell_success_prob")
+                && arch_has_field(a, "bell_attempt_interval")
+                && arch_has_field(a, "max_bell_rate")
+                && arch_has_field(a, "code_distance")
+                && impl_has_field(&imp.data, "remote")
+        }
+        None => false,
+    }
+}
+
+/// Emits the budget-aware wrapper closure used in place of bare `realize_gate`
+/// when Bell pair hardware fields are present. The closure enforces the per-cycle
+/// remote gate limit before delegating to the QMRL-authored realize_gate.
+fn emit_budget_wrapper_call(backend_fn: &str, explore_orders: bool) -> TokenStream {
+    let backend = syn::Ident::new(backend_fn, Span::call_site());
+    quote! {
+        let budgeted_realize_gate = |step: &Step<CustomRealization>, arch: &CustomArch, gate: &Gate| -> Option<CustomRealization> {
+            let t_cycle = arch.syndrome_bell_demand() as f64 / arch.bell_pair_rate();
+            let budget = arch.gate_bell_budget(t_cycle);
+            let remote_count = step.implemented_gates.iter()
+                .filter(|g| g.implementation.remote())
+                .count();
+            if remote_count >= budget {
+                return None;
+            }
+            realize_gate(step, arch, gate).into_iter().next()
+        };
+        return backend::#backend(c, a, &|s| available_transitions(a, s), &budgeted_realize_gate, custom_step_cost, Some(mapping_heuristic), #explore_orders);
     }
 }
 
@@ -644,48 +654,60 @@ fn emit_step_cost(p: &ProblemDefinition) -> TokenStream {
     }
 }
 
-fn emit_solve_function(imp: &ImplBlock) -> TokenStream {
+fn emit_solve_function(imp: &ImplBlock, arch: &Option<ArchitectureBlock>) -> TokenStream {
     let sub_expr = Expr::CallMethod {
         d: DataType::Step,
         method: "implemented_gates".to_string(),
         args: vec![],
     };
     let explore_orders = contains_subexpr(&imp.realize, &sub_expr);
-    let imp_struct_name = syn::Ident::new(&imp.data.name, Span::call_site());
+    let body = if has_bell_budget(arch, imp) {
+        emit_budget_wrapper_call("solve", explore_orders)
+    } else {
+        quote! { return backend::solve(c, a, &|s| available_transitions(a, s), &realize_gate, custom_step_cost, Some(mapping_heuristic), #explore_orders); }
+    };
     quote! {
-        fn my_solve(c : &Circuit, a : &CustomArch) -> CompilerResult<CustomRealization> {
-            return backend::solve(c, a, &|s| available_transitions(a, s), &realize_gate, custom_step_cost, Some(mapping_heuristic), #explore_orders);
-    }
+        fn my_solve(c: &Circuit, a: &CustomArch) -> CompilerResult<CustomRealization> {
+            #body
+        }
     }
 }
 
-fn emit_sabre_solve_function(imp: &ImplBlock) -> TokenStream {
+fn emit_sabre_solve_function(imp: &ImplBlock, arch: &Option<ArchitectureBlock>) -> TokenStream {
     let sub_expr = Expr::CallMethod {
         d: DataType::Step,
         method: "implemented_gates".to_string(),
         args: vec![],
     };
     let explore_orders = contains_subexpr(&imp.realize, &sub_expr);
-    let imp_struct_name = syn::Ident::new(&imp.data.name, Span::call_site());
+    let body = if has_bell_budget(arch, imp) {
+        emit_budget_wrapper_call("sabre_solve", explore_orders)
+    } else {
+        quote! { return backend::sabre_solve(c, a, &|s| available_transitions(a, s), &realize_gate, custom_step_cost, Some(mapping_heuristic), #explore_orders); }
+    };
     quote! {
-        fn my_sabre_solve(c : &Circuit, a : &CustomArch) -> CompilerResult<CustomRealization> {
-            return backend::sabre_solve(c, a, &|s| available_transitions(a, s), &realize_gate, custom_step_cost, Some(mapping_heuristic), #explore_orders);
-    }
+        fn my_sabre_solve(c: &Circuit, a: &CustomArch) -> CompilerResult<CustomRealization> {
+            #body
+        }
     }
 }
 
-fn emit_joint_optimize_parallel_function(imp: &ImplBlock) -> TokenStream {
+fn emit_joint_optimize_parallel_function(imp: &ImplBlock, arch: &Option<ArchitectureBlock>) -> TokenStream {
     let sub_expr = Expr::CallMethod {
         d: DataType::Step,
         method: "implemented_gates".to_string(),
         args: vec![],
     };
     let explore_orders = contains_subexpr(&imp.realize, &sub_expr);
-    let imp_struct_name = syn::Ident::new(&imp.data.name, Span::call_site());
+    let body = if has_bell_budget(arch, imp) {
+        emit_budget_wrapper_call("solve_joint_optimize_parallel", explore_orders)
+    } else {
+        quote! { return backend::solve_joint_optimize_parallel(c, a, &|s| available_transitions(a, s), &realize_gate, custom_step_cost, Some(mapping_heuristic), #explore_orders); }
+    };
     quote! {
-        fn my_joint_solve_parallel(c : &Circuit, a : &CustomArch) -> CompilerResult<CustomRealization> {
-            return backend::solve_joint_optimize_parallel(c, a, &|s| available_transitions(a, s), &realize_gate, custom_step_cost, Some(mapping_heuristic), #explore_orders);
-    }
+        fn my_joint_solve_parallel(c: &Circuit, a: &CustomArch) -> CompilerResult<CustomRealization> {
+            #body
+        }
     }
 }
 
