@@ -25,8 +25,8 @@ RouteInfo:
                 // Local gate: standard connectivity check, no Bell pair cost
                 if Arch.contains_edge((State.map[Gate.qubits[0]], State.map[Gate.qubits[1]]))
                     then Some(GateRealization{
-                            u      = State.map[Gate.qubits[0]],
-                            v      = State.map[Gate.qubits[1]],
+                            u = State.map[Gate.qubits[0]],
+                            v = State.map[Gate.qubits[1]],
                             remote = false
                          })
                     else None
@@ -34,8 +34,8 @@ RouteInfo:
                 // Remote gate: TeleGate via Bell pair.
                 // Bell pair budget enforcement lives in the MaxState layer.
                 Some(GateRealization{
-                    u      = State.map[Gate.qubits[0]],
-                    v      = State.map[Gate.qubits[1]],
+                    u = State.map[Gate.qubits[0]],
+                    v = State.map[Gate.qubits[1]],
                     remote = true
                 })
 
