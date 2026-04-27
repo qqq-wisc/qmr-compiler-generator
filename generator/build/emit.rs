@@ -588,7 +588,13 @@ fn emit_budget_wrapper_call(backend_fn: &str, explore_orders: bool) -> TokenStre
     let backend = syn::Ident::new(backend_fn, Span::call_site());
     quote! {
         let budgeted_realize_gate = |step: &Step<CustomRealization>, arch: &CustomArch, gate: &Gate| -> Option<CustomRealization> {
-            let t_cycle = arch.syndrome_bell_demand() as f64 / arch.bell_pair_rate();
+            let bell_rate = arch.bell_pair_rate();
+            if bell_rate == 0.0 {
+                panic!("No Bell pairs available: bell_pair_rate() is zero. \
+                        Check hardware parameters (bell_success_prob, bell_attempt_interval, \
+                        max_bell_rate). Remote gates cannot be scheduled.");
+            }
+            let t_cycle = arch.syndrome_bell_demand() as f64 / bell_rate;
             let budget = arch.gate_bell_budget(t_cycle);
             let remote_count = step.implemented_gates.iter()
                 .filter(|g| g.implementation.remote())
