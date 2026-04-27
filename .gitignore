@@ -10,3 +10,8 @@
 memlog.txt
 rustc-time.sh
 generator/debug
+backups/
+config_full.json
+generated-solvers/
+research/**/*.md
+demo/

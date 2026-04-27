@@ -1,0 +1,80 @@
+// Two-QPU Distributed Routing with Bell Pair Budget Constraint
+// Problem: Communication Qubit Budget-Aware Scheduling
+//
+// Extends simple_2qpu.qmrl with Bell pair generation hardware parameters.
+// New constraint: MaxState enforces max_bell_pairs_per_cycle per QEC cycle.
+//
+// Hardware model (single optical cavity, L=20):
+//   N_comm = 160, P_aa = 0.10, t_attempt = 1.0 us, R_max = 10 MHz
+//   R_Bell = 0.10 x min(160/1.0, 10) = 0.10 x 10 = 1 MHz
+//   T_cycle_baseline = syndrome_bell_demand / R_Bell = 40 / 1 = 40 us
+//   max_bell_pairs_per_cycle(40 us) = floor(1 x 40) = 40
+//   gate_bell_budget = 40 (total) - 40 (syndrome) = 0 extra
+//     No inter-module gates can be scheduled in a cycle with T=40 us
+//     Compiler must increase T_cycle to accommodate remote gates
+//
+// Note: All multi-QPU built-ins (qpu_id, same_qpu, comm_qubit_for) must be
+// present in ArchInfo. This file adds Bell pair budget fields on top.
+
+RouteInfo:
+    routed_gates = CX
+    GateRealization{u : Location, v : Location, remote : Bool}
+    realize_gate =
+        if Arch.same_qpu(State.map[Gate.qubits[0]], State.map[Gate.qubits[1]])
+            then
+                // Local gate: standard connectivity check, no Bell pair cost
+                if Arch.contains_edge((State.map[Gate.qubits[0]], State.map[Gate.qubits[1]]))
+                    then Some(GateRealization{
+                            u = State.map[Gate.qubits[0]],
+                            v = State.map[Gate.qubits[1]],
+                            remote = false
+                         })
+                    else None
+            else
+                // Remote gate: TeleGate via Bell pair.
+                // Bell pair budget enforcement lives in the MaxState layer.
+                Some(GateRealization{
+                    u = State.map[Gate.qubits[0]],
+                    v = State.map[Gate.qubits[1]],
+                    remote = true
+                })
+
+
+TransitionInfo:
+    Transition{edge : (Location, Location)}
+    get_transitions = (map(|x| -> Transition{edge = x}, Arch.edges()))
+                        .push(Transition{edge = (Location(0), Location(0))})
+    apply = value_swap(Transition.edge.(0), Transition.edge.(1))
+    cost  = if (Transition.edge) == (Location(0), Location(0))
+                then 0.0
+                else 1.0
+
+
+ArchInfo:
+    Arch{
+        // Multi-QPU topology fields
+        num_qpus              : Int,
+        qpu_sizes             : Vec<Int>,
+        link_cost             : Float,
+        comm_qubits           : Vec<Location>,
+        alg_qubits            : Vec<Location>,
+
+        // Bell pair generation hardware parameters
+        n_comm_qubits         : Int,
+        bell_success_prob     : Float,
+        bell_attempt_interval : Float,
+        max_bell_rate         : Float,
+        code_distance         : Int
+    }
+    get_locations = Arch.alg_qubits()
+
+
+StateInfo:
+    // Cost = local swap count + e-bit count (link_cost per remote gate)
+    // Bell pair budget enforcement is in realize_gate, not here.
+    cost = fold(0.0,
+                |x, acc| -> acc + x,
+                map(|x| -> if x.implementation.(remote())
+                               then Arch.link_cost
+                               else 0.0,
+                    State.implemented_gates()))

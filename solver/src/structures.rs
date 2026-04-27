@@ -440,3 +440,177 @@ pub struct CompilerResult<T: GateImplementation> {
     pub thread_id : Option<String>,
     pub elapsed_time : Option<u64>
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use petgraph::Graph;
+
+    // ── Minimal mock types ────────────────────────────────────────────────────
+
+    #[derive(Clone, Debug, Serialize, Hash, PartialEq, Eq)]
+    struct MockImpl {
+        remote: bool,
+    }
+    impl MockImpl {
+        fn remote(&self) -> bool { self.remote }
+    }
+    impl GateImplementation for MockImpl {}
+
+    struct MockArch {
+        n_comm_qubits: usize,
+        bell_success_prob: f64,
+        bell_attempt_interval: f64,
+        max_bell_rate: f64,
+        code_distance: usize,
+    }
+    impl MockArch {
+        fn bell_pair_rate(&self) -> f64 {
+            if self.bell_attempt_interval == 0.0 { return f64::MAX; }
+            let rate_from_qubits = self.n_comm_qubits as f64 / self.bell_attempt_interval;
+            self.bell_success_prob * rate_from_qubits.min(self.max_bell_rate)
+        }
+        fn syndrome_bell_demand(&self) -> usize { 2 * self.code_distance }
+        fn max_bell_pairs_per_cycle(&self, cycle_time: f64) -> usize {
+            let rate = self.bell_pair_rate();
+            if rate >= f64::MAX / 2.0 { return usize::MAX; }
+            (rate * cycle_time) as usize
+        }
+        fn gate_bell_budget(&self, cycle_time: f64) -> usize {
+            self.max_bell_pairs_per_cycle(cycle_time)
+                .saturating_sub(self.syndrome_bell_demand())
+        }
+        fn is_saturated(&self) -> bool {
+            if self.bell_attempt_interval == 0.0 { return false; }
+            (self.n_comm_qubits as f64 / self.bell_attempt_interval) >= self.max_bell_rate
+        }
+    }
+    impl Architecture for MockArch {
+        fn locations(&self) -> Vec<Location> { vec![] }
+        fn graph(&self) -> (Graph<Location, ()>, HashMap<Location, NodeIndex>) {
+            (Graph::new(), HashMap::new())
+        }
+    }
+
+    fn sinclair_arch() -> MockArch {
+        MockArch {
+            n_comm_qubits: 160,
+            bell_success_prob: 0.10,
+            bell_attempt_interval: 1.0,
+            max_bell_rate: 10.0,
+            code_distance: 20,
+        }
+    }
+
+    fn cx_gate(id: usize) -> Gate {
+        Gate { operation: Operation::CX, qubits: vec![Qubit::new(0), Qubit::new(1)], id }
+    }
+
+    fn empty_step() -> Step<MockImpl> {
+        Step { map: HashMap::new(), implemented_gates: HashSet::new() }
+    }
+
+    // ── Bell pair hardware math (Sinclair et al. numbers) ────────────────────
+
+    #[test]
+    fn test_bell_pair_rate_sinclair_params() {
+        let arch = sinclair_arch();
+        // R_Bell = P_aa × min(N_comm/τ, R_max) = 0.10 × min(160, 10) = 1.0 MHz
+        assert!((arch.bell_pair_rate() - 1.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_is_saturated_sinclair_params() {
+        let arch = sinclair_arch();
+        // 160/1.0 = 160 >= R_max=10 → saturated
+        assert!(arch.is_saturated());
+    }
+
+    #[test]
+    fn test_syndrome_bell_demand_sinclair_params() {
+        let arch = sinclair_arch();
+        // 2 × code_distance = 2 × 20 = 40
+        assert_eq!(arch.syndrome_bell_demand(), 40);
+    }
+
+    #[test]
+    fn test_gate_bell_budget_zero_at_baseline() {
+        let arch = sinclair_arch();
+        // t_cycle = syndrome_demand / R_Bell = 40 / 1.0 = 40 μs
+        // max_bell_pairs = floor(1.0 × 40) = 40
+        // budget = 40 - 40 = 0
+        let t_cycle = arch.syndrome_bell_demand() as f64 / arch.bell_pair_rate();
+        assert_eq!(arch.gate_bell_budget(t_cycle), 0);
+    }
+
+    // ── Budget deferral via max_step ─────────────────────────────────────────
+
+    /// Simulates the emitted budget wrapper: with budget=0, all remote gates
+    /// should be deferred (max_step implements zero gates).
+    #[test]
+    fn test_budget_zero_defers_all_remote_gates() {
+        let arch = sinclair_arch();
+        let gates = vec![cx_gate(0), cx_gate(1), cx_gate(2)];
+        let mut step = empty_step();
+
+        let budgeted = |step: &Step<MockImpl>, arch: &MockArch, _gate: &Gate| -> Option<MockImpl> {
+            let bell_rate = arch.bell_pair_rate();
+            let t_cycle = arch.syndrome_bell_demand() as f64 / bell_rate;
+            let budget = arch.gate_bell_budget(t_cycle);
+            let remote_count = step.implemented_gates.iter()
+                .filter(|g| g.implementation.remote())
+                .count();
+            if remote_count >= budget { return None; }
+            Some(MockImpl { remote: true })
+        };
+
+        step.max_step(&gates, &arch, &budgeted);
+        // budget=0 → every gate should be deferred
+        assert_eq!(step.implemented_gates.len(), 0,
+            "Expected all remote gates deferred with budget=0, but {} were implemented",
+            step.implemented_gates.len());
+    }
+
+    /// With budget=1, exactly one remote gate is scheduled per cycle.
+    #[test]
+    fn test_budget_one_allows_single_remote_gate() {
+        // Increase t_cycle so budget = floor(1.0 × 41) - 40 = 1
+        let arch = sinclair_arch();
+        let gates = vec![cx_gate(0), cx_gate(1), cx_gate(2)];
+        let mut step = empty_step();
+
+        let budgeted = |step: &Step<MockImpl>, arch: &MockArch, _gate: &Gate| -> Option<MockImpl> {
+            let bell_rate = arch.bell_pair_rate();
+            // Use t_cycle = 41 μs → budget = floor(1.0×41) - 40 = 1
+            let budget = arch.gate_bell_budget(41.0);
+            let remote_count = step.implemented_gates.iter()
+                .filter(|g| g.implementation.remote())
+                .count();
+            if remote_count >= budget { return None; }
+            Some(MockImpl { remote: true })
+        };
+
+        step.max_step(&gates, &arch, &budgeted);
+        assert_eq!(step.implemented_gates.len(), 1,
+            "Expected exactly 1 remote gate with budget=1, got {}",
+            step.implemented_gates.len());
+    }
+
+    /// Local gates (remote=false) are never counted against the Bell pair budget.
+    #[test]
+    fn test_local_gates_not_counted_against_budget() {
+        let arch = sinclair_arch();
+        let gates = vec![cx_gate(0), cx_gate(1), cx_gate(2)];
+        let mut step = empty_step();
+
+        // realize_gate always returns a local gate
+        let local_realize = |_step: &Step<MockImpl>, _arch: &MockArch, _gate: &Gate| -> Option<MockImpl> {
+            Some(MockImpl { remote: false })
+        };
+
+        step.max_step(&gates, &arch, &local_realize);
+        // All 3 local gates should be scheduled regardless of Bell pair budget
+        assert_eq!(step.implemented_gates.len(), 3,
+            "Local gates should not be limited by Bell pair budget");
+    }
+}

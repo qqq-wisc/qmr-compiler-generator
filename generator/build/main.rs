@@ -157,5 +157,6 @@ fn from_file() {
 }
 
 fn main() {
+    println!("cargo:rerun-if-env-changed=QMRL_PATH");
     from_file();
 }

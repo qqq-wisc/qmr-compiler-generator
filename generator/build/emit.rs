@@ -26,9 +26,10 @@ pub fn emit_program(p: &ProblemDefinition) -> TokenStream {
     let implement_trans_trait = emit_impl_trans(&p.trans, &p.imp);
     let define_available_transitions = emit_available_transitions(&p.trans, &p.imp);
     let define_realize_gate_function = emit_realize_gate_function(&p.imp);
-    let define_solve_function = emit_solve_function(&p.imp);
-    let define_sabre_solve_function = emit_sabre_solve_function(&p.imp);
-    let define_joint_solve_parallel_function = emit_joint_optimize_parallel_function(&p.imp);
+    let define_is_remote_function = emit_is_remote_function(&p.imp);
+    let define_solve_function = emit_solve_function(&p.imp, &p.arch);
+    let define_sabre_solve_function = emit_sabre_solve_function(&p.imp, &p.arch);
+    let define_joint_solve_parallel_function = emit_joint_optimize_parallel_function(&p.imp, &p.arch);
     let define_step_cost = emit_step_cost(&p);
     let define_mapping_heuristic = emit_mapping_heuristic();
     quote! {
@@ -39,6 +40,7 @@ pub fn emit_program(p: &ProblemDefinition) -> TokenStream {
         #define_transition_struct
         #implement_gi_trait
         #implement_gi_getters
+        #define_is_remote_function
         #implement_arch_trait
         #implement_arch_methods
         #implement_trans_trait
@@ -180,6 +182,7 @@ fn emit_type(ty: &Ty) -> syn::Type {
         }
         Ty::IntTy => syn::parse_quote!(usize),
         Ty::FloatTy => syn::parse_quote!(f64),
+        Ty::BoolTy => syn::parse_quote!(bool),
     }
 }
 
@@ -215,18 +218,15 @@ fn emit_impl_gate(imp_data: &NamedTuple) -> TokenStream {
 
 fn emit_impl_gate_methods(imp_data: &NamedTuple) -> TokenStream {
     let struct_name = syn::Ident::new(&imp_data.name, Span::call_site());
+    // Generate getters for every field so x.implementation.(field()) works
+    // regardless of whether the field is a Vec, Bool, Location, etc.
     let getters = imp_data.fields.iter().map(|(name, ty)| {
-        if let Ty::VectorTy(_) = ty {
-            let field_name = syn::Ident::new(name, Span::call_site());
-            let ty_quote = emit_type(ty);
-            let getter = quote! {
-                pub fn #field_name(&self) -> #ty_quote {
-                    return self.#field_name.clone();
-                }
-            };
-            getter
-        } else {
-            quote! {}
+        let field_name = syn::Ident::new(name, Span::call_site());
+        let ty_quote = emit_type(ty);
+        quote! {
+            pub fn #field_name(&self) -> #ty_quote {
+                return self.#field_name.clone();
+            }
         }
     });
     quote! {
@@ -275,6 +275,125 @@ fn emit_impl_arch(arch: &Option<ArchitectureBlock>) -> TokenStream {
             return (self.graph.clone(), self.index_map.clone());
         }
     }};
+}
+
+fn arch_has_field(arch: &ArchitectureBlock, name: &str) -> bool {
+    arch.data.fields.iter().any(|(n, _)| n == name)
+}
+
+fn impl_has_field(imp: &NamedTuple, name: &str) -> bool {
+    imp.fields.iter().any(|(n, _)| n == name)
+}
+
+/// Emits multi-QPU routing and Bell pair generation methods on CustomArch,
+/// conditioned on which fields are present in the QMRL ArchInfo block.
+fn emit_distributed_arch_methods(arch: &Option<ArchitectureBlock>) -> TokenStream {
+    let arch = match arch {
+        Some(a) => a,
+        None => return quote! {},
+    };
+
+    // qpu_id / same_qpu — require num_qpus + qpu_sizes
+    let qpu_routing = if arch_has_field(arch, "num_qpus") && arch_has_field(arch, "qpu_sizes") {
+        quote! {
+            /// Returns the QPU index for a given location, using a prefix-sum
+            /// over qpu_sizes so heterogeneous QPU sizes are handled correctly.
+            pub fn qpu_id(&self, loc: Location) -> usize {
+                let mut cumsum: usize = 0;
+                for (i, &size) in self.qpu_sizes.iter().enumerate() {
+                    cumsum += size;
+                    if loc.get_index() < cumsum {
+                        return i;
+                    }
+                }
+                self.qpu_sizes.len().saturating_sub(1)
+            }
+
+            pub fn same_qpu(&self, a: Location, b: Location) -> bool {
+                self.qpu_id(a) == self.qpu_id(b)
+            }
+        }
+    } else {
+        quote! {}
+    };
+
+    // comm_qubit_for — requires comm_qubits Vec field
+    let comm_qubit_lookup = if arch_has_field(arch, "comm_qubits") {
+        quote! {
+            pub fn comm_qubit_for(&self, qpu: usize) -> Location {
+                self.comm_qubits[qpu]
+            }
+        }
+    } else {
+        quote! {}
+    };
+
+    // Bell pair generation methods — require all four hardware parameters
+    let bell_pair_methods = if arch_has_field(arch, "n_comm_qubits")
+        && arch_has_field(arch, "bell_success_prob")
+        && arch_has_field(arch, "bell_attempt_interval")
+        && arch_has_field(arch, "max_bell_rate")
+    {
+        quote! {
+            /// R_Bell = P_aa * min(N_comm / tau_attempt, R_max)  [MHz]
+            pub fn bell_pair_rate(&self) -> f64 {
+                if self.bell_attempt_interval == 0.0 {
+                    return f64::MAX;
+                }
+                let rate_from_qubits = self.n_comm_qubits as f64 / self.bell_attempt_interval;
+                self.bell_success_prob * rate_from_qubits.min(self.max_bell_rate)
+            }
+
+            /// True when adding more comm qubits yields no increase in R_Bell.
+            pub fn is_saturated(&self) -> bool {
+                if self.bell_attempt_interval == 0.0 {
+                    return false;
+                }
+                let rate_from_qubits = self.n_comm_qubits as f64 / self.bell_attempt_interval;
+                rate_from_qubits >= self.max_bell_rate
+            }
+        }
+    } else {
+        quote! {}
+    };
+
+    // syndrome_bell_demand / max_bell_pairs_per_cycle — require code_distance
+    // (bell_pair_rate is also needed for the latter, but we gate only on code_distance
+    //  so that syndrome_bell_demand is usable independently)
+    let qec_cycle_methods = if arch_has_field(arch, "code_distance") {
+        quote! {
+            /// Baseline Bell pairs per QEC cycle for boundary syndrome measurements = 2L.
+            pub fn syndrome_bell_demand(&self) -> usize {
+                2 * self.code_distance
+            }
+
+            /// Maximum Bell pairs generatable in one QEC cycle of `cycle_time` microseconds.
+            /// Returns usize::MAX when bell_attempt_interval == 0 (on-demand model).
+            pub fn max_bell_pairs_per_cycle(&self, cycle_time: f64) -> usize {
+                let rate = self.bell_pair_rate();
+                if rate >= f64::MAX / 2.0 {
+                    return usize::MAX;
+                }
+                (rate * cycle_time) as usize
+            }
+
+            /// Bell pairs available for inter-module gates per cycle (total minus syndrome).
+            pub fn gate_bell_budget(&self, cycle_time: f64) -> usize {
+                let total = self.max_bell_pairs_per_cycle(cycle_time);
+                let syndrome = self.syndrome_bell_demand();
+                total.saturating_sub(syndrome)
+            }
+        }
+    } else {
+        quote! {}
+    };
+
+    quote! {
+        #qpu_routing
+        #comm_qubit_lookup
+        #bell_pair_methods
+        #qec_cycle_methods
+    }
 }
 
 fn emit_impl_arch_methods(arch: &Option<ArchitectureBlock>) -> TokenStream {
@@ -329,6 +448,9 @@ fn emit_impl_arch_methods(arch: &Option<ArchitectureBlock>) -> TokenStream {
             }
         }
     };
+
+    let distributed_methods = emit_distributed_arch_methods(arch);
+
     return quote! {
         impl #struct_name {
             fn from_file(path: &str) -> Self {
@@ -339,18 +461,19 @@ fn emit_impl_arch_methods(arch: &Option<ArchitectureBlock>) -> TokenStream {
             fn contains_edge(&self, edge: (Location, Location)) -> bool {
                 self.graph.contains_edge(self.index_map[&edge.0], self.index_map[&edge.1])
             }
-        pub fn edges(&self) -> Vec<(Location, Location)> {
-            let mut edges = Vec::new();
-            for edge in self.graph.edge_indices() {
-                let (u, v) = self.graph.edge_endpoints(edge).unwrap();
-                edges
-                    .push((self.graph[u], self.graph[v]),
-                    );
+
+            pub fn edges(&self) -> Vec<(Location, Location)> {
+                let mut edges = Vec::new();
+                for edge in self.graph.edge_indices() {
+                    let (u, v) = self.graph.edge_endpoints(edge).unwrap();
+                    edges.push((self.graph[u], self.graph[v]));
+                }
+                return edges;
             }
-            return edges;
+
+            #(#getters)*
+            #distributed_methods
         }
-        #(#getters)*
-    }
     };
 }
 
@@ -408,6 +531,20 @@ fn emit_available_transitions(t: &TransitionBlock, imp: &ImplBlock) -> TokenStre
     }
 }
 
+/// Emits `fn is_remote(r: &CustomRealization) -> bool` when GateRealization
+/// has a `remote : Bool` field, enabling the design-doc usage pattern
+/// `if is_remote(x.implementation)`.
+fn emit_is_remote_function(imp: &ImplBlock) -> TokenStream {
+    if !impl_has_field(&imp.data, "remote") {
+        return quote! {};
+    }
+    quote! {
+        fn is_remote(r: &CustomRealization) -> bool {
+            r.remote()
+        }
+    }
+}
+
 fn emit_realize_gate_function(imp: &ImplBlock) -> TokenStream {
     let imp_struct_name = syn::Ident::new(&imp.data.name, Span::call_site());
     let realize_gate_expr = emit_expr(
@@ -425,6 +562,49 @@ fn emit_realize_gate_function(imp: &ImplBlock) -> TokenStream {
         ) -> impl IntoIterator<Item = CustomRealization> {
             #realize_gate_expr
         }
+    }
+}
+
+/// Returns true when all five Bell pair hardware fields and a `remote` field
+/// on GateRealization are present — i.e., budget enforcement should be active.
+fn has_bell_budget(arch: &Option<ArchitectureBlock>, imp: &ImplBlock) -> bool {
+    match arch {
+        Some(a) => {
+            arch_has_field(a, "n_comm_qubits")
+                && arch_has_field(a, "bell_success_prob")
+                && arch_has_field(a, "bell_attempt_interval")
+                && arch_has_field(a, "max_bell_rate")
+                && arch_has_field(a, "code_distance")
+                && impl_has_field(&imp.data, "remote")
+        }
+        None => false,
+    }
+}
+
+/// Emits the budget-aware wrapper closure used in place of bare `realize_gate`
+/// when Bell pair hardware fields are present. The closure enforces the per-cycle
+/// remote gate limit before delegating to the QMRL-authored realize_gate.
+fn emit_budget_wrapper_call(backend_fn: &str, explore_orders: bool) -> TokenStream {
+    let backend = syn::Ident::new(backend_fn, Span::call_site());
+    quote! {
+        let budgeted_realize_gate = |step: &Step<CustomRealization>, arch: &CustomArch, gate: &Gate| -> Option<CustomRealization> {
+            let bell_rate = arch.bell_pair_rate();
+            if bell_rate == 0.0 {
+                panic!("No Bell pairs available: bell_pair_rate() is zero. \
+                        Check hardware parameters (bell_success_prob, bell_attempt_interval, \
+                        max_bell_rate). Remote gates cannot be scheduled.");
+            }
+            let t_cycle = arch.syndrome_bell_demand() as f64 / bell_rate;
+            let budget = arch.gate_bell_budget(t_cycle);
+            let remote_count = step.implemented_gates.iter()
+                .filter(|g| g.implementation.remote())
+                .count();
+            if remote_count >= budget {
+                return None;
+            }
+            realize_gate(step, arch, gate).into_iter().next()
+        };
+        return backend::#backend(c, a, &|s| available_transitions(a, s), &budgeted_realize_gate, custom_step_cost, Some(mapping_heuristic), #explore_orders);
     }
 }
 
@@ -480,48 +660,60 @@ fn emit_step_cost(p: &ProblemDefinition) -> TokenStream {
     }
 }
 
-fn emit_solve_function(imp: &ImplBlock) -> TokenStream {
+fn emit_solve_function(imp: &ImplBlock, arch: &Option<ArchitectureBlock>) -> TokenStream {
     let sub_expr = Expr::CallMethod {
         d: DataType::Step,
         method: "implemented_gates".to_string(),
         args: vec![],
     };
     let explore_orders = contains_subexpr(&imp.realize, &sub_expr);
-    let imp_struct_name = syn::Ident::new(&imp.data.name, Span::call_site());
+    let body = if has_bell_budget(arch, imp) {
+        emit_budget_wrapper_call("solve", explore_orders)
+    } else {
+        quote! { return backend::solve(c, a, &|s| available_transitions(a, s), &realize_gate, custom_step_cost, Some(mapping_heuristic), #explore_orders); }
+    };
     quote! {
-        fn my_solve(c : &Circuit, a : &CustomArch) -> CompilerResult<CustomRealization> {
-            return backend::solve(c, a, &|s| available_transitions(a, s), &realize_gate, custom_step_cost, Some(mapping_heuristic), #explore_orders);
-    }
+        fn my_solve(c: &Circuit, a: &CustomArch) -> CompilerResult<CustomRealization> {
+            #body
+        }
     }
 }
 
-fn emit_sabre_solve_function(imp: &ImplBlock) -> TokenStream {
+fn emit_sabre_solve_function(imp: &ImplBlock, arch: &Option<ArchitectureBlock>) -> TokenStream {
     let sub_expr = Expr::CallMethod {
         d: DataType::Step,
         method: "implemented_gates".to_string(),
         args: vec![],
     };
     let explore_orders = contains_subexpr(&imp.realize, &sub_expr);
-    let imp_struct_name = syn::Ident::new(&imp.data.name, Span::call_site());
+    let body = if has_bell_budget(arch, imp) {
+        emit_budget_wrapper_call("sabre_solve", explore_orders)
+    } else {
+        quote! { return backend::sabre_solve(c, a, &|s| available_transitions(a, s), &realize_gate, custom_step_cost, Some(mapping_heuristic), #explore_orders); }
+    };
     quote! {
-        fn my_sabre_solve(c : &Circuit, a : &CustomArch) -> CompilerResult<CustomRealization> {
-            return backend::sabre_solve(c, a, &|s| available_transitions(a, s), &realize_gate, custom_step_cost, Some(mapping_heuristic), #explore_orders);
-    }
+        fn my_sabre_solve(c: &Circuit, a: &CustomArch) -> CompilerResult<CustomRealization> {
+            #body
+        }
     }
 }
 
-fn emit_joint_optimize_parallel_function(imp: &ImplBlock) -> TokenStream {
+fn emit_joint_optimize_parallel_function(imp: &ImplBlock, arch: &Option<ArchitectureBlock>) -> TokenStream {
     let sub_expr = Expr::CallMethod {
         d: DataType::Step,
         method: "implemented_gates".to_string(),
         args: vec![],
     };
     let explore_orders = contains_subexpr(&imp.realize, &sub_expr);
-    let imp_struct_name = syn::Ident::new(&imp.data.name, Span::call_site());
+    let body = if has_bell_budget(arch, imp) {
+        emit_budget_wrapper_call("solve_joint_optimize_parallel", explore_orders)
+    } else {
+        quote! { return backend::solve_joint_optimize_parallel(c, a, &|s| available_transitions(a, s), &realize_gate, custom_step_cost, Some(mapping_heuristic), #explore_orders); }
+    };
     quote! {
-        fn my_joint_solve_parallel(c : &Circuit, a : &CustomArch) -> CompilerResult<CustomRealization> {
-            return backend::solve_joint_optimize_parallel(c, a, &|s| available_transitions(a, s), &realize_gate, custom_step_cost, Some(mapping_heuristic), #explore_orders);
-    }
+        fn my_joint_solve_parallel(c: &Circuit, a: &CustomArch) -> CompilerResult<CustomRealization> {
+            #body
+        }
     }
 }
 

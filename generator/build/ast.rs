@@ -46,6 +46,7 @@ pub enum Ty {
     LocationTy,
     IntTy,
     FloatTy,
+    BoolTy,
     TupleTy(Vec<Ty>),
     VectorTy(Box<Ty>),
 }
